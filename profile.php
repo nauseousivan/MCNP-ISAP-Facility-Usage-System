@@ -115,32 +115,31 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
         }
         
         .header-brand {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.header-brand img {
-    height: 40px;
-    width: auto;
-}
-
-.brand-text {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}
-
-.brand-title {
-    font-size: 16px;
-    font-weight: 700;
-    color: #1a1a1a;
-}
-
-.brand-subtitle {
-    font-size: 12px;
-    color: #6b7280;
-}
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .header-brand img {
+            height: 40px;
+            width: auto;
+        }
+        
+        .header-brand .brand-text {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header-brand .brand-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1a1a1a;
+        }
+        
+        .header-brand .brand-subtitle {
+            font-size: 12px;
+            color: #6b7280;
+        }
         
         .btn-back {
             padding: 8px 16px;
@@ -393,11 +392,11 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
 </head>
 <body>
     <header class="header">
-             <div class="header-brand">
-            <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
+        <div class="header-brand">
+            <img src="img/<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
             <div class="brand-text">
                 <div class="brand-title"><?php echo htmlspecialchars($portal_name); ?></div>
-                <div class="brand-subtitle">Profile</div>
+                <div class="brand-subtitle">Profile Settings</div>
             </div>
         </div>
         <a href="dashboard.php" class="btn-back">Back to Dashboard</a>
