@@ -11,6 +11,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'Admin') {
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
 // Handle status update
+// Handle status update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $request_id = $_POST['request_id'];
     $action = $_POST['action'];
@@ -18,13 +19,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     
     $new_status = ($action === 'approve') ? 'approved' : 'rejected';
     
-    $sql = "UPDATE facility_requests SET status = ?, admin_notes = ?, updated_at = NOW() WHERE id = ?";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("ssi", $new_status, $admin_notes, $request_id);
-    $stmt->execute();
+    // First get the request details to know the user_id
+    $request_sql = "SELECT user_id, control_number FROM facility_requests WHERE id = ?";
+    $request_stmt = $conn->prepare($request_sql);
+    $request_stmt->bind_param("i", $request_id);
+    $request_stmt->execute();
+    $request_data = $request_stmt->get_result()->fetch_assoc();
     
-    header("Location: requests.php?success=1");
-    exit();
+    if ($request_data) {
+        $user_id = $request_data['user_id'];
+        $control_number = $request_data['control_number'];
+        
+        // Update the request status
+        $sql = "UPDATE facility_requests SET status = ?, admin_notes = ?, updated_at = NOW() WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("ssi", $new_status, $admin_notes, $request_id);
+        
+        if ($stmt->execute()) {
+            // Add notification to the user
+            $notification_type = ($action === 'approve') ? 'request_approved' : 'request_rejected';
+            add_action_notification($conn, $user_id, $notification_type, ['control_number' => $control_number]);
+            
+            header("Location: requests.php?success=1");
+            exit();
+        }
+    }
 }
 
 // Get filter

@@ -112,33 +112,34 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             display: block;
         }
         
-.header-brand {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
 
-.header-brand img {
-    height: 40px;
-    width: auto;
-}
+        .header-brand img {
+            height: 40px;
+            width: auto;
+        }
 
-.brand-text {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}
+        .brand-text {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
 
-.brand-title {
-    font-size: 16px;
-    font-weight: 700;
-    color: #1a1a1a;
-}
+        .brand-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1a1a1a;
+        }
 
-.brand-subtitle {
-    font-size: 12px;
-    color: #6b7280;
-}
+        .brand-subtitle {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        
         .header-actions {
             display: flex;
             align-items: center;
@@ -640,39 +641,228 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         }
         
         [data-theme="dark"] {
-    --bg-primary: #1a1a1a;
-    --bg-secondary: #2d2d2d;
-    --text-primary: #ffffff;
-    --text-secondary: #9ca3af;
-    --border-color: #404040;
-    --accent-color: #818cf8;
-}
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --border-color: #404040;
+            --accent-color: #818cf8;
+        }
 
-        @media (max-width: 768px) {
+        /* Mobile Responsive Styles */
+        @media (max-width: 1024px) {
+            .container {
+                padding: 24px;
+            }
+            
             .content-grid {
-                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .header {
+                padding: 12px 16px;
+            }
+            
+            .header-brand img {
+                height: 32px;
+            }
+            
+            .brand-text {
+                display: none;
+            }
+            
+            .header-actions {
+                gap: 12px;
+            }
+            
+            .btn-settings, .btn-logout {
+                padding: 6px 12px;
+                font-size: 13px;
+            }
+            
+            .btn-settings span, .btn-logout span {
+                display: none;
+            }
+            
+            .btn-settings svg, .btn-logout svg {
+                margin-right: 0;
+            }
+            
+            .container {
+                padding: 16px;
+            }
+            
+            .welcome-section {
+                flex-direction: column;
+                align-items: flex-start;
+                margin-bottom: 24px;
+            }
+            
+            .welcome-section img {
+                margin-right: 0;
+                margin-bottom: 16px;
+                width: 56px;
+                height: 56px;
+            }
+            
+            .welcome-section h1 {
+                font-size: 24px;
             }
             
             .action-cards {
                 grid-template-columns: repeat(2, 1fr);
+                gap: 16px;
+                margin-bottom: 32px;
+            }
+            
+            .action-card {
+                padding: 24px 16px;
+            }
+            
+            .content-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+            
+            .section-card {
+                padding: 20px;
+            }
+            
+            .section-header {
+                margin-bottom: 16px;
+            }
+            
+            .section-header h2 {
+                font-size: 16px;
+            }
+            
+            .request-item {
+                padding: 12px;
+            }
+            
+            .request-item-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            
+            .request-item p {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            
+            .stats-card {
+                padding: 20px;
+            }
+            
+            .stats-card h2 {
+                font-size: 16px;
+                margin-bottom: 16px;
+            }
+            
+            .stats-list .value {
+                font-size: 18px;
             }
             
             .notification-dropdown {
                 right: 16px;
                 width: calc(100vw - 32px);
+                max-width: 380px;
             }
+        }
+        
+        @media (max-width: 480px) {
+            .action-cards {
+                grid-template-columns: 1fr;
+            }
+            
+            .action-card {
+                padding: 20px 16px;
+            }
+            
+            .action-card-icon {
+                width: 40px;
+                height: 40px;
+            }
+            
+            .action-card-icon svg {
+                width: 20px;
+                height: 20px;
+            }
+            
+            .header-actions {
+                gap: 8px;
+            }
+            
+            .btn-notification {
+                width: 36px;
+                height: 36px;
+            }
+            
+            .profile-button {
+                width: 36px;
+                height: 36px;
+            }
+            
+            .btn-settings, .btn-logout {
+                padding: 6px;
+            }
+            
+            .notification-dropdown {
+                right: 8px;
+                width: calc(100vw - 16px);
+            }
+        }
+        
+        /* Additional mobile-specific improvements */
+        @media (max-width: 768px) {
+            .request-item p {
+                font-size: 12px;
+            }
+            
+            .request-item h4 {
+                font-size: 14px;
+            }
+            
+            .btn-view {
+                font-size: 12px;
+                padding: 5px 10px;
+            }
+            
+            .status-badge {
+                font-size: 10px;
+                padding: 3px 8px;
+            }
+        }
+        
+        /* Improve touch targets for mobile */
+        @media (max-width: 768px) {
+            .action-card, .btn-view, .btn-settings, .btn-logout, .btn-notification {
+                min-height: 44px; /* Apple's recommended minimum touch target size */
+            }
+            
+            .request-item {
+                padding: 16px; /* More padding for easier tapping */
+            }
+        }
+        
+        /* Prevent horizontal scrolling */
+        body {
+            overflow-x: hidden;
         }
     </style>
 </head>
 <body>
     <header class="header">
-<div class="header-brand">
-    <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
-    <div class="brand-text">
-        <span class="brand-title"><?php echo htmlspecialchars($portal_name); ?></span>
-        <span class="brand-subtitle"><?php echo htmlspecialchars($portal_subtitle); ?></span>
-    </div>
-</div>
+        <div class="header-brand">
+            <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
+            <div class="brand-text">
+                <span class="brand-title"><?php echo htmlspecialchars($portal_name); ?></span>
+                <span class="brand-subtitle"><?php echo htmlspecialchars($portal_subtitle); ?></span>
+            </div>
+        </div>
         <div class="header-actions">
             <a href="profile.php" class="profile-button" title="View Profile" style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; border: 2px solid #e5e7eb; transition: all 0.2s; display: block;">
                 <img src="<?php echo htmlspecialchars($profile_picture); ?>" alt="Profile" style="width: 100%; height: 100%; object-fit: cover;">
@@ -688,13 +878,13 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                 </svg>
-                Settings
+                <span>Settings</span>
             </a>
             <a href="logout.php" class="btn-logout">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
                 </svg>
-                Logout
+                <span>Logout</span>
             </a>
         </div>
     </header>

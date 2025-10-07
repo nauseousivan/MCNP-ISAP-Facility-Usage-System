@@ -10,6 +10,10 @@ if (!isset($_SESSION['user_id'])) {
 
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
+// Initialize variables to prevent undefined errors
+$logo_file = isset($logo_file) ? $logo_file : 'img/default-logo.png';
+$portal_name = isset($portal_name) ? $portal_name : 'MCNP Service Portal';
+
 // Facilities list with descriptions
 $facilities = [
     [
@@ -98,8 +102,6 @@ $facilities = [
     ]
 ];
 
-// Assuming $logo_file and $portal_name are set dynamically based on department
-
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -122,7 +124,7 @@ $facilities = [
         .header {
             background: white;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            padding: 16px 32px;
+            padding: 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -173,15 +175,15 @@ $facilities = [
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 32px;
+            padding: 24px 16px;
         }
         
         .page-header {
-            margin-bottom: 32px;
+            margin-bottom: 24px;
         }
         
         .page-header h1 {
-            font-size: 32px;
+            font-size: 28px;
             color: #1a1a1a;
             margin-bottom: 8px;
         }
@@ -193,8 +195,8 @@ $facilities = [
         
         .facilities-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 24px;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
         }
         
         .facility-card {
@@ -225,11 +227,11 @@ $facilities = [
         }
         
         .facility-content {
-            padding: 24px;
+            padding: 20px;
         }
         
         .facility-content h3 {
-            font-size: 20px;
+            font-size: 18px;
             color: #1a1a1a;
             margin-bottom: 8px;
         }
@@ -336,7 +338,7 @@ $facilities = [
         }
         
         .modal-body {
-            padding: 32px;
+            padding: 24px;
         }
         
         .modal-header {
@@ -347,7 +349,7 @@ $facilities = [
         }
         
         .modal-header h2 {
-            font-size: 28px;
+            font-size: 24px;
             color: #1a1a1a;
             margin: 0;
         }
@@ -421,6 +423,206 @@ $facilities = [
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
+        
+        /* Mobile Responsive Styles - COMPACT VERSION */
+        @media (max-width: 768px) {
+            .header {
+                padding: 12px 16px;
+            }
+            
+            .header-brand img {
+                height: 36px;
+            }
+            
+            .header-brand .brand-title {
+                font-size: 14px;
+            }
+            
+            .header-brand .brand-subtitle {
+                font-size: 11px;
+            }
+            
+            .btn-back {
+                padding: 6px 12px;
+                font-size: 13px;
+            }
+            
+            .container {
+                padding: 16px;
+            }
+            
+            .page-header h1 {
+                font-size: 24px;
+            }
+            
+            .page-header p {
+                font-size: 14px;
+            }
+            
+            /* COMPACT MOBILE GRID - 2 columns */
+            .facilities-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+            }
+            
+            /* SMALLER CARDS */
+            .facility-card {
+                border-radius: 8px;
+            }
+            
+            .facility-image {
+                height: 120px; /* Much smaller images */
+            }
+            
+            .facility-content {
+                padding: 12px;
+            }
+            
+            .facility-content h3 {
+                font-size: 14px;
+                margin-bottom: 6px;
+            }
+            
+            .facility-capacity {
+                font-size: 10px;
+                padding: 3px 8px;
+                margin-bottom: 8px;
+            }
+            
+            .facility-description {
+                font-size: 11px;
+                line-height: 1.4;
+                margin-bottom: 10px;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+            }
+            
+            .facility-amenities {
+                gap: 4px;
+                margin-bottom: 10px;
+            }
+            
+            .amenity-tag {
+                font-size: 9px;
+                padding: 2px 6px;
+            }
+            
+            .btn-book-facility {
+                padding: 8px;
+                font-size: 12px;
+                border-radius: 4px;
+            }
+            
+            /* Modal adjustments for mobile */
+            .modal-content {
+                width: 95%;
+                margin: 10% auto;
+            }
+            
+            .modal-image {
+                height: 200px;
+            }
+            
+            .modal-body {
+                padding: 20px;
+            }
+            
+            .modal-header h2 {
+                font-size: 20px;
+            }
+            
+            .modal-description {
+                font-size: 14px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .header-brand {
+                gap: 8px;
+            }
+            
+            .header-brand img {
+                height: 32px;
+            }
+            
+            .btn-back {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+            
+            .page-header h1 {
+                font-size: 22px;
+            }
+            
+            /* Single column on very small screens */
+            .facilities-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+            
+            .facility-image {
+                height: 140px;
+            }
+            
+            .facility-content h3 {
+                font-size: 16px;
+            }
+            
+            .facility-description {
+                font-size: 12px;
+                -webkit-line-clamp: 3;
+            }
+            
+            .modal-content {
+                width: 98%;
+                margin: 5% auto;
+            }
+            
+            .modal-image {
+                height: 180px;
+            }
+            
+            .modal-body {
+                padding: 16px;
+            }
+            
+            .modal-header h2 {
+                font-size: 18px;
+            }
+            
+            .modal-description {
+                font-size: 14px;
+            }
+            
+            .modal-amenity-tag {
+                font-size: 12px;
+                padding: 6px 10px;
+            }
+        }
+
+        /* For tablets in landscape or larger phones */
+        @media (min-width: 481px) and (max-width: 768px) {
+            .facilities-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .facility-image {
+                height: 130px;
+            }
+        }
+
+        /* For larger tablets */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .facilities-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            
+            .facility-image {
+                height: 160px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -432,7 +634,7 @@ $facilities = [
                 <div class="brand-subtitle">Browse Facilities</div>
             </div>
         </div>
-        <a href="dashboard.php" class="btn-back">Back to Dashboard</a>
+        <a href="dashboard.php" class="btn-back">Back</a>
     </header>
 
     <div class="container">
@@ -442,26 +644,35 @@ $facilities = [
         </div>
 
         <div class="facilities-grid">
-            <?php foreach ($facilities as $index => $facility): ?>
-                <div class="facility-card" onclick="openModal(<?php echo $index; ?>)">
-                    <img src="<?php echo htmlspecialchars($facility['image']); ?>" alt="<?php echo htmlspecialchars($facility['name']); ?>" class="facility-image">
-                    <div class="facility-content">
-                        <h3><?php echo htmlspecialchars($facility['name']); ?></h3>
-                        <span class="facility-capacity">
-                            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: inline-block; vertical-align: middle; margin-right: 4px;">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-                            </svg>
-                            <?php echo htmlspecialchars($facility['capacity']); ?>
-                        </span>
-                        <p class="facility-description"><?php echo htmlspecialchars(substr($facility['description'], 0, 80)) . '...'; ?></p>
-                        <div class="facility-amenities">
-                            <?php foreach (array_slice($facility['amenities'], 0, 3) as $amenity): ?>
-                                <span class="amenity-tag"><?php echo htmlspecialchars($amenity); ?></span>
-                            <?php endforeach; ?>
+            <?php if (isset($facilities) && is_array($facilities)): ?>
+                <?php foreach ($facilities as $index => $facility): ?>
+                    <div class="facility-card" onclick="openModal(<?php echo $index; ?>)">
+                        <img src="<?php echo htmlspecialchars($facility['image']); ?>" alt="<?php echo htmlspecialchars($facility['name']); ?>" class="facility-image">
+                        <div class="facility-content">
+                            <h3><?php echo htmlspecialchars($facility['name']); ?></h3>
+                            <span class="facility-capacity">
+                                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: inline-block; vertical-align: middle; margin-right: 4px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                                </svg>
+                                <?php echo htmlspecialchars($facility['capacity']); ?>
+                            </span>
+                            <p class="facility-description"><?php echo htmlspecialchars(substr($facility['description'], 0, 80)) . '...'; ?></p>
+                            <div class="facility-amenities">
+                                <?php foreach (array_slice($facility['amenities'], 0, 2) as $amenity): ?>
+                                    <span class="amenity-tag"><?php echo htmlspecialchars($amenity); ?></span>
+                                <?php endforeach; ?>
+                                <?php if (count($facility['amenities']) > 2): ?>
+                                    <span class="amenity-tag">+<?php echo count($facility['amenities']) - 2; ?> more</span>
+                                <?php endif; ?>
+                            </div>
                         </div>
                     </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <div class="no-facilities">
+                    <p>No facilities available at the moment.</p>
                 </div>
-            <?php endforeach; ?>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -486,9 +697,11 @@ $facilities = [
     </div>
 
     <script>
-        const facilities = <?php echo json_encode($facilities); ?>;
+        const facilities = <?php echo isset($facilities) ? json_encode($facilities) : '[]'; ?>;
         
         function openModal(index) {
+            if (!facilities || facilities.length === 0) return;
+            
             const facility = facilities[index];
             const modal = document.getElementById('facilityModal');
             
@@ -534,6 +747,5 @@ $facilities = [
             }
         });
     </script>
-      <?php include 'chat_bot.php'; ?>
 </body>
 </html>

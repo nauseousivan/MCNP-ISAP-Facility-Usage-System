@@ -97,12 +97,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
         }
         
+        // ADD NOTIFICATION FOR REQUEST SUBMISSION
+        add_action_notification($conn, $user_id, 'request_submitted', ['control_number' => $control_number]);
+        
         $success = "Request submitted successfully! Control Number: <strong>$control_number</strong>";
     } else {
         $error = "Error submitting request: " . $conn->error;
     }
 }
-
 // Available facilities
 $facilities_list = [
     'HM Laboratory',
@@ -130,7 +132,6 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
 <!DOCTYPE html>
 <html lang="en" data-theme="<?php echo htmlspecialchars($theme); ?>">
 <head>
-<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>New Facility Request - MCNP-ISAP</title>
@@ -149,7 +150,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         .navbar {
             background: white;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            padding: 16px 32px;
+            padding: 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -188,39 +189,40 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         
         .container {
             max-width: 1000px;
-            margin: 32px auto;
-            padding: 0 32px;
+            margin: 0 auto;
+            padding: 16px;
         }
         
         .form-card {
             background: white;
             border-radius: 12px;
-            padding: 40px;
+            padding: 24px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         
         .form-header {
             text-align: center;
-            margin-bottom: 32px;
-            padding-bottom: 24px;
+            margin-bottom: 24px;
+            padding-bottom: 20px;
             border-bottom: 2px solid #e5e7eb;
         }
         
         .form-header h2 {
-            font-size: 28px;
+            font-size: 24px;
             color: #1a1a1a;
             margin-bottom: 8px;
         }
         
         .form-header p {
             color: #6b7280;
+            font-size: 14px;
         }
         
         /* Multi-step form styles */
         .form-steps {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 32px;
+            margin-bottom: 24px;
             position: relative;
         }
         
@@ -269,9 +271,10 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         }
         
         .step-label {
-            font-size: 14px;
+            font-size: 12px;
             font-weight: 500;
             color: #6b7280;
+            text-align: center;
         }
         
         .step.active .step-label {
@@ -279,7 +282,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         }
         
         .form-section {
-            margin-bottom: 32px;
+            margin-bottom: 24px;
             display: none;
         }
         
@@ -290,20 +293,27 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         .form-section h3 {
             font-size: 18px;
             color: #1a1a1a;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
             padding-bottom: 12px;
             border-bottom: 1px solid #e5e7eb;
         }
         
+        /* Add space between instruction text and facility cards */
+        .form-section p {
+            margin-bottom: 24px;
+            color: #6b7280;
+            font-size: 14px;
+        }
+        
         .form-row {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 20px;
+            grid-template-columns: 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
         }
         
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
         
         label {
@@ -338,20 +348,27 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             box-shadow: 0 0 0 3px rgba(0,0,0,0.05);
         }
         
+        /* Updated facilities grid for 4 rows - no scrolling needed */
         .facilities-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 16px;
-            margin-bottom: 24px;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+            max-height: none;
+            overflow: visible;
         }
         
         .facility-card {
             border: 2px solid #e5e7eb;
             border-radius: 8px;
-            padding: 16px;
+            padding: 12px 8px;
             text-align: center;
             cursor: pointer;
             transition: all 0.2s;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .facility-card:hover {
@@ -364,20 +381,17 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         }
         
         .facility-card h4 {
-            font-size: 14px;
-            margin-bottom: 8px;
-        }
-        
-        .facility-card p {
-            font-size: 12px;
-            color: #6b7280;
+            font-size: 13px;
+            margin-bottom: 0;
+            font-weight: 600;
+            line-height: 1.3;
         }
         
         .facility-details {
             background: #f9fafb;
             border: 1px solid #e5e7eb;
             border-radius: 8px;
-            padding: 20px;
+            padding: 16px;
             margin-bottom: 16px;
         }
         
@@ -385,11 +399,11 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
         }
         
         .facility-details-header h4 {
-            font-size: 16px;
+            font-size: 15px;
             color: #1a1a1a;
         }
         
@@ -400,7 +414,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             border: none;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
         }
         
         .btn-remove:hover {
@@ -415,7 +429,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             border-radius: 6px;
             cursor: pointer;
             font-weight: 500;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
         
         .btn-add:hover {
@@ -425,17 +439,18 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         .form-navigation {
             display: flex;
             justify-content: space-between;
-            margin-top: 32px;
+            margin-top: 24px;
         }
         
         .btn-prev, .btn-next {
-            padding: 12px 24px;
+            padding: 12px 20px;
             background: #f3f4f6;
             color: #1a1a1a;
             border: none;
             border-radius: 8px;
             font-weight: 500;
             cursor: pointer;
+            min-height: 44px;
         }
         
         .btn-next {
@@ -461,6 +476,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
+            min-height: 44px;
         }
         
         .btn-submit:hover {
@@ -470,7 +486,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         .alert {
             padding: 12px 16px;
             border-radius: 8px;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
         
         .alert-danger {
@@ -488,11 +504,12 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         .success-actions {
             display: flex;
             gap: 12px;
-            margin-top: 20px;
+            margin-top: 16px;
+            flex-direction: column;
         }
         
         .btn-print, .btn-download {
-            padding: 12px 24px;
+            padding: 12px 20px;
             background: #1a1a1a;
             color: white;
             border: none;
@@ -502,10 +519,22 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             text-decoration: none;
             display: inline-block;
             text-align: center;
+            min-height: 44px;
         }
         
         .btn-print:hover, .btn-download:hover {
             background: #000;
+        }
+        
+        /* Make the time input more prominent */
+        .detail-time {
+            font-weight: 500;
+        }
+        
+        .detail-hours {
+            background-color: #f3f4f6;
+            font-weight: 600;
+            color: #1a1a1a;
         }
         
         @media print {
@@ -520,8 +549,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
                 left: 0;
                 top: 0;
                 width: 100%;
-                /* Add margin for clean print look */
-                margin: 0; 
+                margin: 0;
             }
             .no-print {
                 display: none !important;
@@ -529,13 +557,100 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         }
         
         [data-theme="dark"] {
-    --bg-primary: #1a1a1a;
-    --bg-secondary: #2d2d2d;
-    --text-primary: #ffffff;
-    --text-secondary: #9ca3af;
-    --border-color: #404040;
-    --accent-color: #818cf8;
-}
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --border-color: #404040;
+            --accent-color: #818cf8;
+        }
+
+        /* Mobile Responsive Styles */
+        @media (min-width: 768px) {
+            .navbar {
+                padding: 16px 32px;
+            }
+            
+            .container {
+                padding: 32px;
+            }
+            
+            .form-card {
+                padding: 40px;
+            }
+            
+            .form-row {
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                gap: 20px;
+            }
+            
+            .facilities-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 16px;
+            }
+            
+            .success-actions {
+                flex-direction: row;
+            }
+            
+            .step-label {
+                font-size: 14px;
+            }
+            
+            .facility-card h4 {
+                font-size: 14px;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .facilities-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .navbar-brand h1 {
+                font-size: 16px;
+            }
+            
+            .form-header h2 {
+                font-size: 20px;
+            }
+            
+            .facilities-grid {
+                gap: 10px;
+            }
+            
+            .step-circle {
+                width: 32px;
+                height: 32px;
+                font-size: 14px;
+            }
+            
+            .step-label {
+                font-size: 10px;
+            }
+        }
+
+        /* For very small screens */
+        @media (max-width: 380px) {
+            .facility-card h4 {
+                font-size: 12px;
+            }
+        }
+
+        /* Improve touch targets */
+        .facility-card, .btn-remove, .btn-add {
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Prevent horizontal scrolling */
+        body {
+            overflow-x: hidden;
+        }
     </style>
 </head>
 <body>
@@ -544,7 +659,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
             <h1><?php echo htmlspecialchars($portal_name); ?></h1>
         </div>
-        <a href="dashboard.php" class="btn-back">← Back to Dashboard</a>
+        <a href="dashboard.php" class="btn-back">← Back</a>
     </nav>
 
     <div class="container">
@@ -627,7 +742,8 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
                     </div>
                     
                     <div class="form-navigation">
-                        <div></div> <button type="button" class="btn-next" onclick="nextStep(1)">Next</button>
+                        <div></div> 
+                        <button type="button" class="btn-next" onclick="nextStep(1)">Next</button>
                     </div>
                 </div>
 
@@ -639,7 +755,6 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
                         <?php foreach ($facilities_list as $facility): ?>
                             <div class="facility-card" data-facility="<?php echo $facility; ?>">
                                 <h4><?php echo $facility; ?></h4>
-                                <p>Click to select</p>
                             </div>
                         <?php endforeach; ?>
                     </div>
@@ -654,7 +769,8 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
                     <h3>Details of Selected Facilities</h3>
                     
                     <div id="facilities-container">
-                        </div>
+                        <!-- Facility details will be generated here -->
+                    </div>
                     
                     <div class="form-navigation">
                         <button type="button" class="btn-prev" onclick="prevStep(3)">Previous</button>
@@ -709,7 +825,8 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             <div style="margin-bottom: 30px;">
                 <h2 style="font-size: 18px; margin-bottom: 15px; border-bottom: 1px solid #000; padding-bottom: 10px; font-weight: bold;">DETAILS OF FACILITY NEEDED</h2>
                 <div id="print-facilities-container">
-                    </div>
+                    <!-- Facility details will be populated here -->
+                </div>
             </div>
             
             <div style="margin-top: 50px; border-top: 1px solid #ddd; padding-top: 20px;">
@@ -741,7 +858,6 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         let selectedFacilities = [];
         let facilityCount = 0;
 
-        // Step navigation functions (UNCHANGED)
         function nextStep(step) {
             if (step === 1) {
                 // Validate step 1
@@ -793,7 +909,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             document.getElementById(`step-${currentStep}`).classList.add('active');
         }
         
-        // Facility selection (UNCHANGED)
+        // Facility selection
         document.addEventListener('DOMContentLoaded', function() {
             const facilityCards = document.querySelectorAll('.facility-card');
             
@@ -819,13 +935,13 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
                 input.min = today;
             });
 
-            // NEW: If on success page, immediately prepare the print form data
+            // If on success page, immediately prepare the print form data
             if (typeof submittedData !== 'undefined' && submittedData.facilities.length > 0) {
                 preparePrintForm(submittedData, controlNumber);
             }
         });
         
-        // Generate facility details forms (MODIFIED TO REMOVE PRINT-SPECIFIC TABLE LOGIC)
+        // Generate facility details forms with smart time calculation
         function generateFacilityDetails() {
             const container = document.getElementById('facilities-container');
             container.innerHTML = '';
@@ -846,14 +962,14 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
                             <input type="date" name="dates[]" class="detail-date" required>
                         </div>
                         <div class="form-group">
-                            <label>Time Needed *</label>
-                            <input type="text" name="times[]" class="detail-time" placeholder="e.g., 8:00 AM - 5:00 PM" required>
+                            <label>Time Needed (e.g., 8-9 or 8:00-17:00) *</label>
+                            <input type="text" name="times[]" class="detail-time" placeholder="8-9 or 8:00-17:00" required onblur="calculateHours(this)">
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
                             <label>Total Hours *</label>
-                            <input type="number" name="hours[]" class="detail-hours" step="0.5" min="0.5" placeholder="e.g., 8" required>
+                            <input type="number" name="hours[]" class="detail-hours" step="0.5" min="0.5" placeholder="Auto-calculated" readonly>
                         </div>
                         <div class="form-group">
                             <label>Total Number of Participants *</label>
@@ -884,13 +1000,79 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             generateFacilityDetails();
         }
 
-        // NEW FUNCTION: Populates the print form structure with data
+        // SMART TIME CALCULATION FUNCTION
+        function calculateHours(timeInput) {
+            const timeValue = timeInput.value.trim();
+            const hoursInput = timeInput.closest('.facility-details').querySelector('.detail-hours');
+            
+            if (!timeValue) {
+                hoursInput.value = '';
+                return;
+            }
+            
+            // Handle formats like: 8-9, 8:00-17:00, 8am-5pm, etc.
+            const timeRegex = /(\d{1,2})(?::(\d{2}))?\s*([ap]m)?\s*-\s*(\d{1,2})(?::(\d{2}))?\s*([ap]m)?/i;
+            const match = timeValue.match(timeRegex);
+            
+            if (!match) {
+                // If simple format like "8-9"
+                const simpleMatch = timeValue.match(/(\d{1,2})\s*-\s*(\d{1,2})/);
+                if (simpleMatch) {
+                    const start = parseInt(simpleMatch[1]);
+                    const end = parseInt(simpleMatch[2]);
+                    let hours = end - start;
+                    
+                    // Handle cases like 8-12 (4 hours), 1-5 (4 hours)
+                    if (hours > 0) {
+                        hoursInput.value = hours;
+                        return;
+                    }
+                }
+                alert('Please enter time in format: 8-9 or 8:00-17:00');
+                return;
+            }
+            
+            // Parse the time components
+            let startHour = parseInt(match[1]);
+            let startMinute = match[2] ? parseInt(match[2]) : 0;
+            let startPeriod = match[3] ? match[3].toLowerCase() : '';
+            
+            let endHour = parseInt(match[4]);
+            let endMinute = match[5] ? parseInt(match[5]) : 0;
+            let endPeriod = match[6] ? match[6].toLowerCase() : '';
+            
+            // Convert to 24-hour format if periods are specified
+            if (startPeriod === 'pm' && startHour < 12) startHour += 12;
+            if (startPeriod === 'am' && startHour === 12) startHour = 0;
+            
+            if (endPeriod === 'pm' && endHour < 12) endHour += 12;
+            if (endPeriod === 'am' && endHour === 12) endHour = 0;
+            
+            // Calculate total hours
+            const startTotalMinutes = startHour * 60 + startMinute;
+            const endTotalMinutes = endHour * 60 + endMinute;
+            
+            let totalMinutes = endTotalMinutes - startTotalMinutes;
+            
+            if (totalMinutes < 0) {
+                totalMinutes += 24 * 60; // Handle overnight
+            }
+            
+            const totalHours = totalMinutes / 60;
+            
+            if (totalHours > 0) {
+                hoursInput.value = Math.round(totalHours * 2) / 2; // Round to nearest 0.5
+            } else {
+                alert('Invalid time range. End time must be after start time.');
+                hoursInput.value = '';
+            }
+        }
+
         function preparePrintForm(data, controlNum) {
             const printFacilityContainer = document.getElementById('print-facilities-container');
             const requestor = data.requestor;
             const facilities = data.facilities;
 
-            // 1. Populate Requestor Info
             document.getElementById('print-control-number').textContent = `Control Number: ${controlNum}`;
             document.getElementById('print-requestor-name').textContent = requestor.name;
             document.getElementById('print-requestor-dept').textContent = requestor.department;
@@ -898,7 +1080,6 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             document.getElementById('print-requestor-phone').textContent = requestor.phone_number || 'N/A';
             document.getElementById('print-requestor-event').textContent = requestor.event_type;
 
-            // 2. Clear and Populate Facility Details (matching the image block style)
             printFacilityContainer.innerHTML = '';
 
             if (facilities.length === 0) {
@@ -945,13 +1126,10 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             });
         }
         
-        // Print form function (MODIFIED to call preparePrintForm if on the submission page)
         function printForm() {
             if (typeof submittedData !== 'undefined' && submittedData.facilities.length > 0) {
-                // We are on the success page, the data is in the PHP variable
                 preparePrintForm(submittedData, controlNumber);
             } else {
-                // If not on success page, try to pull from live form (for testing/drafts)
                 const liveFacilityDetails = document.querySelectorAll('#facilities-container .facility-details');
                 
                 if (liveFacilityDetails.length === 0) {
@@ -959,7 +1137,6 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
                     return;
                 }
                 
-                // --- Reconstruct Data from Live Fields (Fallback for non-submission print) ---
                 const requestor = {
                     name: document.querySelector('input[name="requestor_name"]').value,
                     department: document.querySelector('input[name="department"]').value,
@@ -978,9 +1155,8 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
                 }));
 
                 const liveData = { requestor: requestor, facilities: facilities };
-                const tempControl = document.querySelector('#request-form').getAttribute('data-control') || 'N/A-Draft'; // You might need to set a data-control attribute on the form for this to work perfectly outside of submission.
+                const tempControl = document.querySelector('#request-form').getAttribute('data-control') || 'N/A-Draft';
                 
-                // Do basic validation for live draft printing
                 let allDetailsValid = facilities.every(f => f.date && f.time && f.hours && f.participants);
                 if (!allDetailsValid) {
                     alert("Please fill in all required facility details (Date, Time, Hours, Participants) before printing a draft.");
@@ -990,23 +1166,20 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
                 preparePrintForm(liveData, tempControl);
             }
             
-            // Execute print
             const printableForm = document.getElementById('printable-form');
             printableForm.style.display = 'block';
             
             window.print();
             
-            // Hide printable form after printing
             setTimeout(() => {
                 printableForm.style.display = 'none';
             }, 500);
         }
         
-        // Download PDF function (placeholder)
         function downloadPDF() {
             alert('PDF download functionality would be implemented here. For now, please use the print function and choose "Save as PDF" from your browser\'s print dialog.');
         }
     </script>
-    <?php include 'chat_bot.php'; ?>
+
 </body>
 </html>

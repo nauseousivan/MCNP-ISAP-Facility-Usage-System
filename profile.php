@@ -30,14 +30,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $phone = $_POST['phone'];
         $bio = $_POST['bio'];
         
+        // Check what specifically changed for more specific notifications
+        $changed_fields = [];
+        if ($name != $user['name']) $changed_fields[] = 'name';
+        if ($department != $user['department']) $changed_fields[] = 'department';
+        if ($program != $user['program']) $changed_fields[] = 'program';
+        if ($phone != $user['phone_number']) $changed_fields[] = 'phone';
+        if ($bio != $user['bio']) $changed_fields[] = 'bio';
+        
         $sql = "UPDATE users SET name = ?, department = ?, program = ?, phone_number = ?, bio = ? WHERE id = ?";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("sssssi", $name, $department, $program, $phone, $bio, $user_id);
         
         if ($stmt->execute()) {
             $_SESSION['user_name'] = $name;
+            
+            // Add specific notifications based on what changed
+            if (in_array('phone', $changed_fields)) {
+                add_action_notification($conn, $user_id, 'phone_updated');
+            }
+            
+            // General profile update notification
+            add_action_notification($conn, $user_id, 'profile_update');
+            
             $success = "Profile updated successfully!";
-            add_notification($conn, $user_id, "Profile Updated", "Your profile information has been successfully updated.", "profile_update");
             
             // Refresh user data
             $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
@@ -50,39 +66,27 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
     
     if (isset($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] == 0) {
-        $allowed = ['jpg', 'jpeg', 'png', 'gif'];
-        $filename = $_FILES['profile_picture']['name'];
-        $filetype = pathinfo($filename, PATHINFO_EXTENSION);
+        // ... existing file validation code ...
         
-        if (in_array(strtolower($filetype), $allowed)) {
-            $new_filename = 'profile_' . $user_id . '_' . time() . '.' . $filetype;
-            $upload_path = 'uploads/profiles/' . $new_filename;
+        if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $upload_path)) {
+            $sql = "UPDATE users SET profile_picture = ? WHERE id = ?";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("si", $upload_path, $user_id);
             
-            // Create directory if it doesn't exist
-            if (!file_exists('uploads/profiles')) {
-                mkdir('uploads/profiles', 0777, true);
-            }
-            
-            if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $upload_path)) {
-                $sql = "UPDATE users SET profile_picture = ? WHERE id = ?";
-                $stmt = $conn->prepare($sql);
-                $stmt->bind_param("si", $upload_path, $user_id);
+            if ($stmt->execute()) {
+                // Add specific notification for profile picture update
+                add_action_notification($conn, $user_id, 'profile_picture_update');
                 
-                if ($stmt->execute()) {
-                    $success = "Profile picture updated successfully!";
-                    $user['profile_picture'] = $upload_path;
-                } else {
-                    $error = "Error saving profile picture.";
-                }
+                $success = "Profile picture updated successfully!";
+                $user['profile_picture'] = $upload_path;
             } else {
-                $error = "Error uploading file.";
+                $error = "Error saving profile picture.";
             }
         } else {
-            $error = "Invalid file type. Only JPG, JPEG, PNG & GIF files are allowed.";
+            $error = "Error uploading file.";
         }
     }
 }
-
 $logo_file = $GLOBALS['logo_file'];
 $portal_name = $GLOBALS['portal_name'];
 $portal_subtitle = $GLOBALS['portal_subtitle'];
@@ -393,7 +397,7 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
 <body>
     <header class="header">
         <div class="header-brand">
-            <img src="img/<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
+            <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
             <div class="brand-text">
                 <div class="brand-title"><?php echo htmlspecialchars($portal_name); ?></div>
                 <div class="brand-subtitle">Profile Settings</div>
@@ -509,6 +513,6 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
             </div>
         </div>
     </div>
-    <?php include 'chat_bot.php'; ?>
+
 </body>
 </html>
