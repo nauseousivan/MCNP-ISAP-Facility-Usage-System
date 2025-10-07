@@ -1,0 +1,9 @@
+# Redirect root to splash screen
+DirectoryIndex splash.php index.php
+
+# Enable rewrite engine
+RewriteEngine On
+
+# Redirect www to non-www (optional)
+RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
+RewriteRule ^(.*)$ http://%1/$1 [R=301,L]
