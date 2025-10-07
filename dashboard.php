@@ -34,9 +34,9 @@ $user = $stmt->get_result()->fetch_assoc();
 $logo_file = $GLOBALS['logo_file'];
 $department_lower = strtolower($user['department']);
 if (strpos($department_lower, 'international') !== false) {
-    $logo_file = 'isap-logo.png';
+    $logo_file = 'isap-logo2.png';
 } elseif (strpos($department_lower, 'medical') !== false) {
-    $logo_file = 'medical-logo.png';
+    $logo_file = 'medical-logo2.png';
 }
 
 $profile_picture = !empty($user['profile_picture']) ? $user['profile_picture'] : 'https://ui-avatars.com/api/?name=' . urlencode($user['name']) . '&background=6366f1&color=fff&size=128';
@@ -102,33 +102,43 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             align-items: center;
         }
         
-        .header-brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        .header-brand img {
-            height: 40px;
+        .header-logo {
+            background: #fff;
+            border-radius: 12px;
+            padding: 6px;
+            height: 73px;
             width: auto;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            display: block;
         }
         
-        .header-brand .brand-text {
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .header-brand .brand-title {
-            font-size: 16px;
-            font-weight: 700;
-            color: #1a1a1a;
-        }
-        
-        .header-brand .brand-subtitle {
-            font-size: 12px;
-            color: #6b7280;
-        }
-        
+.header-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.header-brand img {
+    height: 40px;
+    width: auto;
+}
+
+.brand-text {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.brand-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1a1a1a;
+}
+
+.brand-subtitle {
+    font-size: 12px;
+    color: #6b7280;
+}
         .header-actions {
             display: flex;
             align-items: center;
@@ -656,13 +666,13 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
 </head>
 <body>
     <header class="header">
-        <div class="header-brand">
-            <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo" style="border-radius: 50%; object-fit: cover;">
-            <div class="brand-text">
-                <div class="brand-title"><?php echo htmlspecialchars($GLOBALS['portal_name']); ?></div>
-                <div class="brand-subtitle">Dashboard</div>
-            </div>
-        </div>
+<div class="header-brand">
+    <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
+    <div class="brand-text">
+        <span class="brand-title"><?php echo htmlspecialchars($portal_name); ?></span>
+        <span class="brand-subtitle"><?php echo htmlspecialchars($portal_subtitle); ?></span>
+    </div>
+</div>
         <div class="header-actions">
             <a href="profile.php" class="profile-button" title="View Profile" style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; border: 2px solid #e5e7eb; transition: all 0.2s; display: block;">
                 <img src="<?php echo htmlspecialchars($profile_picture); ?>" alt="Profile" style="width: 100%; height: 100%; object-fit: cover;">

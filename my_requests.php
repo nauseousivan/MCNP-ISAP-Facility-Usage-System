@@ -60,29 +60,54 @@ $requests = $stmt->get_result();
         }
         
         .navbar {
-            background: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
             padding: 16px 32px;
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            justify-content: flex-start;
+            margin-bottom: 32px;
+            border-radius: 0 0 12px 12px;
         }
         
         .navbar-brand {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 16px;
         }
         
         .navbar-brand img {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
+            height: 44px;
+            width: auto;
+            border-radius: 0;
+            background: #fff;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+            padding: 4px;
+            transition: box-shadow 0.2s;
         }
         
-        .navbar-brand h1 {
+        .navbar-brand img:hover {
+            box-shadow: 0 4px 16px rgba(102,126,234,0.12);
+        }
+        
+        .brand-text {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .brand-title {
             font-size: 18px;
             font-weight: 700;
+            color: #1a1a1a;
+            letter-spacing: 0.01em;
+        }
+        
+        .brand-subtitle {
+            font-size: 13px;
+            color: #6b7280;
+            margin-top: 2px;
+            letter-spacing: 0.01em;
         }
         
         .navbar-menu {
@@ -225,22 +250,73 @@ $requests = $stmt->get_result();
         .btn-view:hover {
             background: #e5e7eb;
         }
+
+        .header {
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 0 0 12px 12px;
+            margin-bottom: 32px;
+        }
+        
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .header-brand img {
+            height: 40px;
+            width: auto;
+        }
+        
+        .header-brand .brand-text {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header-brand .brand-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1a1a1a;
+        }
+        
+        .header-brand .brand-subtitle {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        
+        .btn-back {
+            padding: 8px 16px;
+            background: white;
+            color: #1a1a1a;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        
+        .btn-back:hover {
+            background: #f9fafb;
+        }
     </style>
 </head>
 <body>
-    <nav class="navbar">
-        <div class="navbar-brand">
-            <!-- Using dynamic logo based on department -->
+    <header class="header">
+        <div class="header-brand">
             <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
-            <!-- Using dynamic portal name based on department -->
-            <h1><?php echo htmlspecialchars($portal_name); ?></h1>
+            <div class="brand-text">
+                <div class="brand-title"><?php echo htmlspecialchars($portal_name); ?></div>
+                <div class="brand-subtitle">Your Requests</div>
+            </div>
         </div>
-        <div class="navbar-menu">
-            <a href="dashboard.php">Dashboard</a>
-            <a href="my_requests.php" class="active">My Requests</a>
-            <a href="logout.php">Logout</a>
-        </div>
-    </nav>
+        <a href="dashboard.php" class="btn-back">Back to Dashboard</a>
+    </header>
 
     <div class="container">
         <div class="page-header">

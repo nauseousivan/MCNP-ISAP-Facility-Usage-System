@@ -43,12 +43,12 @@ if (isset($_SESSION['user_id'])) {
         
         if (strpos($department_lower, 'international') !== false) {
             // International School of Asia and the Pacific
-            $logo_file = 'isap-logo.png';
+            $logo_file = 'isap-logo2.png';
             $portal_name = 'ISAP Facility Portal';
             $portal_subtitle = 'International School of Asia and the Pacific';
         } elseif (strpos($department_lower, 'medical') !== false) {
             // Medical Colleges of Northern Philippines
-            $logo_file = 'medical-logo.png';
+            $logo_file = 'medical-logo2.png';
             $portal_name = 'MCNP Facility Portal'; // <-- CHANGE THIS LINE
             $portal_subtitle = 'Medical Colleges of Northern Philippines';
         }

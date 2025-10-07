@@ -99,8 +99,7 @@ $facilities = [
 ];
 
 // Assuming $logo_file and $portal_name are set dynamically based on department
-$logo_file = 'combined-logo.png'; // This should be dynamically set
-$portal_name = 'MCNP Service Portal'; // This should be dynamically set
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
