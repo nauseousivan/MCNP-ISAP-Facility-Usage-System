@@ -120,9 +120,9 @@ if ($pref_result->num_rows > 0) {
 $logo_file = 'combined-logo.png';
 $department_lower = strtolower($user['department']);
 if (strpos($department_lower, 'international') !== false) {
-    $logo_file = 'isap-logo.png';
+    $logo_file = 'isap-logo2.png.png';
 } elseif (strpos($department_lower, 'medical') !== false) {
-    $logo_file = 'medical-logo.png';
+    $logo_file = 'medical-logo2.png';
 }
 
 // Get profile picture
@@ -169,7 +169,7 @@ $profile_picture = !empty($user['profile_picture']) ? $user['profile_picture'] :
         .header {
             background: var(--bg-primary);
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            padding: 16px 32px;
+            padding: 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -182,8 +182,8 @@ $profile_picture = !empty($user['profile_picture']) ? $user['profile_picture'] :
         }
         
         .header-brand img {
-            height: 48px;
-            width: 48px;
+            height: 40px;
+            width: 40px;
             border-radius: 50%;
             object-fit: cover;
         }
@@ -207,67 +207,37 @@ $profile_picture = !empty($user['profile_picture']) ? $user['profile_picture'] :
         .header-actions {
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 12px;
         }
         
-        .profile-button {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            overflow: hidden;
-            cursor: pointer;
-            border: 2px solid var(--border-color);
-            transition: all 0.2s;
-        }
-        
-        .profile-button:hover {
-            border-color: var(--accent-color);
-            transform: scale(1.05);
-        }
-        
-        .profile-button img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        .btn-nav {
+        .btn-back {
             padding: 8px 16px;
+            background: white;
+            color: #1a1a1a;
+            border: 1px solid #e5e7eb;
             border-radius: 6px;
             text-decoration: none;
             font-weight: 500;
             font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            border: 1px solid var(--border-color);
-            transition: all 0.2s;
+            transition: background 0.2s;
         }
         
-        .btn-nav:hover {
-            background: var(--border-color);
-        }
-        
-        .btn-nav.active {
-            background: var(--accent-color);
-            color: white;
-            border-color: var(--accent-color);
+        .btn-back:hover {
+            background: #f9fafb;
         }
         
         .container {
             max-width: 900px;
             margin: 0 auto;
-            padding: 32px;
+            padding: 24px 16px;
         }
         
         .page-header {
-            margin-bottom: 32px;
+            margin-bottom: 24px;
         }
         
         .page-header h1 {
-            font-size: 32px;
+            font-size: 28px;
             margin-bottom: 8px;
         }
         
@@ -279,8 +249,8 @@ $profile_picture = !empty($user['profile_picture']) ? $user['profile_picture'] :
         .settings-section {
             background: var(--bg-primary);
             border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 24px;
+            padding: 20px;
+            margin-bottom: 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         
@@ -344,6 +314,7 @@ $profile_picture = !empty($user['profile_picture']) ? $user['profile_picture'] :
         .checkbox-group label {
             margin: 0;
             cursor: pointer;
+            font-size: 14px;
         }
         
         .btn-primary {
@@ -413,13 +384,173 @@ $profile_picture = !empty($user['profile_picture']) ? $user['profile_picture'] :
             margin-bottom: 8px;
         }
         
+        /* Mobile Responsive Styles */
         @media (max-width: 768px) {
-            .container {
-                padding: 16px;
+            .header {
+                padding: 12px 16px;
             }
             
-            .header {
+            .header-brand img {
+                height: 36px;
+                width: 36px;
+            }
+            
+            .header-brand .brand-title {
+                font-size: 14px;
+            }
+            
+            .header-brand .brand-subtitle {
+                font-size: 11px;
+            }
+            
+            .btn-back {
+                padding: 6px 12px;
+                font-size: 13px;
+            }
+            
+            .container {
+                padding: 20px 12px;
+            }
+            
+            .page-header {
+                margin-bottom: 20px;
+            }
+            
+            .page-header h1 {
+                font-size: 24px;
+            }
+            
+            .page-header p {
+                font-size: 14px;
+            }
+            
+            .settings-section {
                 padding: 16px;
+                margin-bottom: 16px;
+                border-radius: 10px;
+            }
+            
+            .settings-section h2 {
+                font-size: 16px;
+                margin-bottom: 12px;
+            }
+            
+            .settings-section h2 svg {
+                width: 18px;
+                height: 18px;
+            }
+            
+            .form-group {
+                margin-bottom: 16px;
+            }
+            
+            .form-group label {
+                font-size: 13px;
+            }
+            
+            .form-group input,
+            .form-group select {
+                padding: 8px 12px;
+                font-size: 13px;
+            }
+            
+            .checkbox-group label {
+                font-size: 13px;
+            }
+            
+            .btn-primary {
+                padding: 8px 16px;
+                font-size: 13px;
+                width: 100%;
+            }
+            
+            .alert {
+                padding: 10px 14px;
+                margin-bottom: 16px;
+                font-size: 13px;
+            }
+            
+            .theme-preview {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+            
+            .theme-option {
+                padding: 12px;
+            }
+            
+            .theme-option svg {
+                width: 28px;
+                height: 28px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .header {
+                padding: 10px 12px;
+            }
+            
+            .header-brand {
+                gap: 8px;
+            }
+            
+            .header-brand img {
+                height: 32px;
+                width: 32px;
+            }
+            
+            .header-brand .brand-title {
+                font-size: 13px;
+            }
+            
+            .header-brand .brand-subtitle {
+                font-size: 10px;
+            }
+            
+            .btn-back {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+            
+            .container {
+                padding: 16px 8px;
+            }
+            
+            .page-header h1 {
+                font-size: 22px;
+            }
+            
+            .settings-section {
+                padding: 14px;
+                border-radius: 8px;
+            }
+            
+            .settings-section h2 {
+                font-size: 15px;
+            }
+            
+            .form-group input,
+            .form-group select {
+                padding: 8px 10px;
+            }
+            
+            .theme-option {
+                padding: 10px;
+            }
+        }
+
+        /* For very small screens */
+        @media (max-width: 360px) {
+            .header-brand .brand-text {
+                max-width: 120px;
+            }
+            
+            .page-header h1 {
+                font-size: 20px;
+            }
+            
+            .settings-section h2 {
+                font-size: 14px;
             }
         }
     </style>
@@ -434,28 +565,7 @@ $profile_picture = !empty($user['profile_picture']) ? $user['profile_picture'] :
             </div>
         </div>
         <div class="header-actions">
-            <a href="profile.php" class="profile-button" title="View Profile">
-                <img src="<?php echo $profile_picture; ?>" alt="Profile">
-            </a>
-            <a href="dashboard.php" class="btn-nav">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-                </svg>
-                Dashboard
-            </a>
-            <a href="settings.php" class="btn-nav active">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                </svg>
-                Settings
-            </a>
-            <a href="logout.php" class="btn-nav">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-                </svg>
-                Logout
-            </a>
+            <a href="dashboard.php" class="btn-back">Back</a>
         </div>
     </header>
 

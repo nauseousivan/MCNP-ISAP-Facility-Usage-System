@@ -112,7 +112,7 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
         .header {
             background: white;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            padding: 16px 32px;
+            padding: 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -163,7 +163,7 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
         .container {
             max-width: 900px;
             margin: 0 auto;
-            padding: 32px;
+            padding: 24px 16px;
         }
         
         /* Improved profile card layout */
@@ -387,9 +387,246 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
             border: 1px solid #fecaca;
         }
         
+        /* Mobile Responsive Styles */
         @media (max-width: 768px) {
+            .header {
+                padding: 12px 16px;
+            }
+            
+            .header-brand img {
+                height: 36px;
+            }
+            
+            .header-brand .brand-title {
+                font-size: 14px;
+            }
+            
+            .header-brand .brand-subtitle {
+                font-size: 11px;
+            }
+            
+            .btn-back {
+                padding: 6px 12px;
+                font-size: 13px;
+            }
+            
+            .container {
+                padding: 16px;
+            }
+            
             .profile-layout {
                 grid-template-columns: 1fr;
+                gap: 16px;
+            }
+            
+            .profile-sidebar {
+                padding: 24px 20px;
+            }
+            
+            .profile-card {
+                padding: 24px 20px;
+            }
+            
+            .profile-avatar-container {
+                width: 100px;
+                height: 100px;
+                margin-bottom: 16px;
+            }
+            
+            .profile-avatar {
+                width: 100px;
+                height: 100px;
+                font-size: 36px;
+            }
+            
+            .profile-avatar-upload {
+                width: 32px;
+                height: 32px;
+            }
+            
+            .profile-avatar-upload svg {
+                width: 16px;
+                height: 16px;
+            }
+            
+            .profile-header h2 {
+                font-size: 20px;
+            }
+            
+            .profile-header p {
+                font-size: 13px;
+            }
+            
+            .profile-stats {
+                margin-top: 20px;
+                padding-top: 20px;
+                gap: 8px;
+            }
+            
+            .stat-item .number {
+                font-size: 20px;
+            }
+            
+            .stat-item .label {
+                font-size: 11px;
+            }
+            
+            .section-title {
+                font-size: 16px;
+                margin-bottom: 16px;
+            }
+            
+            .form-group {
+                margin-bottom: 16px;
+            }
+            
+            label {
+                font-size: 13px;
+                margin-bottom: 6px;
+            }
+            
+            input[type="text"],
+            input[type="email"],
+            input[type="tel"],
+            textarea,
+            select {
+                padding: 10px 14px;
+                font-size: 14px;
+                border-radius: 6px;
+            }
+            
+            textarea {
+                min-height: 80px;
+            }
+            
+            .btn-submit {
+                padding: 12px;
+                font-size: 15px;
+                border-radius: 6px;
+            }
+            
+            .alert {
+                padding: 10px 14px;
+                margin-bottom: 16px;
+                font-size: 14px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .header {
+                padding: 10px 12px;
+            }
+            
+            .header-brand {
+                gap: 8px;
+            }
+            
+            .header-brand img {
+                height: 32px;
+            }
+            
+            .header-brand .brand-title {
+                font-size: 13px;
+            }
+            
+            .header-brand .brand-subtitle {
+                font-size: 10px;
+            }
+            
+            .btn-back {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+            
+            .container {
+                padding: 12px;
+            }
+            
+            .profile-sidebar {
+                padding: 20px 16px;
+                border-radius: 10px;
+            }
+            
+            .profile-card {
+                padding: 20px 16px;
+                border-radius: 10px;
+            }
+            
+            .profile-avatar-container {
+                width: 80px;
+                height: 80px;
+            }
+            
+            .profile-avatar {
+                width: 80px;
+                height: 80px;
+                font-size: 28px;
+                border-width: 3px;
+            }
+            
+            .profile-avatar-upload {
+                width: 28px;
+                height: 28px;
+                border-width: 2px;
+            }
+            
+            .profile-avatar-upload svg {
+                width: 14px;
+                height: 14px;
+            }
+            
+            .profile-header h2 {
+                font-size: 18px;
+            }
+            
+            .profile-stats {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 6px;
+            }
+            
+            .stat-item .number {
+                font-size: 18px;
+            }
+            
+            .stat-item .label {
+                font-size: 10px;
+            }
+            
+            input[type="text"],
+            input[type="email"],
+            input[type="tel"],
+            textarea,
+            select {
+                padding: 8px 12px;
+                font-size: 13px;
+            }
+            
+            .btn-submit {
+                padding: 10px;
+                font-size: 14px;
+            }
+        }
+        
+        /* For very small screens */
+        @media (max-width: 360px) {
+            .header-brand .brand-text {
+                max-width: 120px;
+            }
+            
+            .profile-avatar-container {
+                width: 70px;
+                height: 70px;
+            }
+            
+            .profile-avatar {
+                width: 70px;
+                height: 70px;
+                font-size: 24px;
+            }
+            
+            .profile-stats {
+                grid-template-columns: 1fr;
+                gap: 8px;
             }
         }
     </style>
@@ -403,7 +640,7 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
                 <div class="brand-subtitle">Profile Settings</div>
             </div>
         </div>
-        <a href="dashboard.php" class="btn-back">Back to Dashboard</a>
+        <a href="dashboard.php" class="btn-back">Back</a>
     </header>
 
     <div class="container">

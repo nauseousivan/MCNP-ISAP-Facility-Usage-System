@@ -51,15 +51,19 @@ $facilities = $stmt->get_result();
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #f5f7fa;
+            line-height: 1.6;
         }
         
         .navbar {
             background: white;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            padding: 16px 32px;
+            padding: 16px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
         
         .navbar-brand {
@@ -81,40 +85,62 @@ $facilities = $stmt->get_result();
         
         .btn-back {
             padding: 8px 16px;
-            background: #f3f4f6;
+            background: white;
             color: #1a1a1a;
-            border: none;
+            border: 1px solid #e5e7eb;
             border-radius: 6px;
             text-decoration: none;
             font-weight: 500;
+            font-size: 14px;
+            white-space: nowrap;
         }
         
         .container {
             max-width: 1000px;
-            margin: 32px auto;
-            padding: 0 32px;
+            margin: 24px auto;
+            padding: 0 16px;
         }
         
         .request-card {
             background: white;
             border-radius: 12px;
-            padding: 40px;
+            padding: 24px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        @media (min-width: 768px) {
+            .request-card {
+                padding: 40px;
+            }
         }
         
         .request-header {
             display: flex;
-            justify-content: space-between;
-            align-items: start;
-            margin-bottom: 32px;
-            padding-bottom: 24px;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 24px;
+            padding-bottom: 20px;
             border-bottom: 2px solid #e5e7eb;
         }
         
+        @media (min-width: 640px) {
+            .request-header {
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: start;
+            }
+        }
+        
         .request-header h2 {
-            font-size: 24px;
+            font-size: 22px;
             color: #1a1a1a;
             margin-bottom: 8px;
+        }
+        
+        @media (min-width: 768px) {
+            .request-header h2 {
+                font-size: 24px;
+            }
         }
         
         .control-number {
@@ -128,6 +154,7 @@ $facilities = $stmt->get_result();
             font-size: 14px;
             font-weight: 600;
             text-transform: uppercase;
+            align-self: flex-start;
         }
         
         .status-badge.pending {
@@ -146,19 +173,33 @@ $facilities = $stmt->get_result();
         }
         
         .info-section {
-            margin-bottom: 32px;
+            margin-bottom: 28px;
         }
         
         .info-section h3 {
             font-size: 18px;
             color: #1a1a1a;
             margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e5e7eb;
         }
         
         .info-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        
+        @media (min-width: 640px) {
+            .info-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (min-width: 1024px) {
+            .info-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
         }
         
         .info-item {
@@ -179,12 +220,18 @@ $facilities = $stmt->get_result();
             font-size: 16px;
             color: #1a1a1a;
             font-weight: 500;
+            word-break: break-word;
+        }
+        
+        .facilities-container {
+            overflow-x: auto;
+            margin-top: 16px;
         }
         
         .facilities-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 16px;
+            min-width: 600px;
         }
         
         .facilities-table th {
@@ -200,6 +247,25 @@ $facilities = $stmt->get_result();
         .facilities-table td {
             padding: 16px 12px;
             border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .facilities-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        @media (max-width: 767px) {
+            .facilities-table th,
+            .facilities-table td {
+                padding: 10px 8px;
+                font-size: 14px;
+            }
+            
+            .facilities-table th:nth-child(4),
+            .facilities-table th:nth-child(5),
+            .facilities-table td:nth-child(4),
+            .facilities-table td:nth-child(5) {
+                display: none;
+            }
         }
         
         .admin-notes {
@@ -218,6 +284,56 @@ $facilities = $stmt->get_result();
         
         .admin-notes p {
             color: #78350f;
+            line-height: 1.5;
+        }
+        
+        /* Mobile-specific improvements */
+        @media (max-width: 480px) {
+            .navbar {
+                padding: 12px 16px;
+            }
+            
+            .navbar-brand h1 {
+                font-size: 16px;
+            }
+            
+            .container {
+                margin: 16px auto;
+                padding: 0 12px;
+            }
+            
+            .request-card {
+                padding: 20px;
+                border-radius: 10px;
+            }
+            
+            .request-header h2 {
+                font-size: 20px;
+            }
+            
+            .info-item {
+                padding: 12px;
+            }
+            
+            .info-value {
+                font-size: 15px;
+            }
+        }
+        
+        /* Print styles */
+        @media print {
+            .navbar, .btn-back {
+                display: none;
+            }
+            
+            body {
+                background: white;
+            }
+            
+            .request-card {
+                box-shadow: none;
+                padding: 0;
+            }
         }
     </style>
 </head>
@@ -227,7 +343,7 @@ $facilities = $stmt->get_result();
             <img src="combined-logo.png" alt="Logo">
             <h1>MCNP-ISAP Facility Portal</h1>
         </div>
-        <a href="dashboard.php" class="btn-back">← Back to Dashboard</a>
+        <a href="dashboard.php" class="btn-back">Back</a>
     </nav>
 
     <div class="container">
@@ -276,30 +392,32 @@ $facilities = $stmt->get_result();
             <!-- Facility Details -->
             <div class="info-section">
                 <h3>Facility Details</h3>
-                <table class="facilities-table">
-                    <thead>
-                        <tr>
-                            <th>Facility</th>
-                            <th>Date</th>
-                            <th>Time</th>
-                            <th>Hours</th>
-                            <th>Participants</th>
-                            <th>Remarks</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php while ($facility = $facilities->fetch_assoc()): ?>
+                <div class="facilities-container">
+                    <table class="facilities-table">
+                        <thead>
                             <tr>
-                                <td><strong><?php echo htmlspecialchars($facility['facility_name']); ?></strong></td>
-                                <td><?php echo date('M d, Y', strtotime($facility['date_needed'])); ?></td>
-                                <td><?php echo htmlspecialchars($facility['time_needed']); ?></td>
-                                <td><?php echo $facility['total_hours']; ?> hrs</td>
-                                <td><?php echo $facility['total_participants']; ?></td>
-                                <td><?php echo htmlspecialchars($facility['remarks'] ?: '-'); ?></td>
+                                <th>Facility</th>
+                                <th>Date</th>
+                                <th>Time</th>
+                                <th>Hours</th>
+                                <th>Participants</th>
+                                <th>Remarks</th>
                             </tr>
-                        <?php endwhile; ?>
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            <?php while ($facility = $facilities->fetch_assoc()): ?>
+                                <tr>
+                                    <td><strong><?php echo htmlspecialchars($facility['facility_name']); ?></strong></td>
+                                    <td><?php echo date('M d, Y', strtotime($facility['date_needed'])); ?></td>
+                                    <td><?php echo htmlspecialchars($facility['time_needed']); ?></td>
+                                    <td><?php echo $facility['total_hours']; ?> hrs</td>
+                                    <td><?php echo $facility['total_participants']; ?></td>
+                                    <td><?php echo htmlspecialchars($facility['remarks'] ?: '-'); ?></td>
+                                </tr>
+                            <?php endwhile; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <!-- Admin Notes -->

@@ -151,7 +151,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         .header {
             background: white;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            padding: 16px 32px;
+            padding: 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -202,7 +202,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 32px;
+            padding: 24px 16px;
         }
         
         /* Calendar controls matching reference design */
@@ -210,8 +210,8 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 24px;
-            gap: 16px;
+            margin-bottom: 20px;
+            gap: 12px;
             flex-wrap: wrap;
         }
         
@@ -246,6 +246,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             align-items: center;
             justify-content: center;
             transition: all 0.2s ease;
+            font-size: 14px;
         }
         
         .view-toggle button.active {
@@ -256,15 +257,15 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         
         .calendar-layout {
             display: grid;
-            grid-template-columns: 1fr 350px;
-            gap: 24px;
+            grid-template-columns: 1fr;
+            gap: 20px;
         }
         
         /* Calendar grid matching reference design */
         .calendar-card {
             background: white;
             border-radius: 12px;
-            padding: 24px;
+            padding: 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         
@@ -272,7 +273,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 24px;
+            margin-bottom: 20px;
         }
         
         .calendar-header h2 {
@@ -304,7 +305,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         .calendar-grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
-            gap: 8px;
+            gap: 6px;
         }
         
         .calendar-day-header {
@@ -312,7 +313,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             font-size: 12px;
             font-weight: 600;
             color: #6b7280;
-            padding: 8px;
+            padding: 8px 4px;
         }
         
         .calendar-day {
@@ -326,6 +327,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             cursor: pointer;
             transition: all 0.2s;
             position: relative;
+            padding: 4px;
         }
         
         .calendar-day:hover {
@@ -396,15 +398,16 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         }
         
         .calendar-day-bookings {
-            font-size: 10px;
+            font-size: 9px;
             color: #dc2626;
             margin-top: 2px;
+            text-align: center;
         }
         
         .calendar-day-label {
             position: absolute;
-            bottom: 4px;
-            font-size: 9px;
+            bottom: 2px;
+            font-size: 8px;
             font-weight: 600;
             text-transform: uppercase;
         }
@@ -418,7 +421,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         .sidebar-card {
             background: white;
             border-radius: 12px;
-            padding: 24px;
+            padding: 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         
@@ -429,7 +432,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         }
         
         .legend {
-            margin-bottom: 24px;
+            margin-bottom: 20px;
         }
         
         .legend-item {
@@ -519,8 +522,8 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         
         .time-slot-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
         }
         
         .time-slot {
@@ -549,8 +552,8 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         
         .year-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 24px;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
         }
         
         .mini-month {
@@ -571,7 +574,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         .mini-calendar-grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
-            gap: 4px;
+            gap: 3px;
         }
         
         .mini-day-header {
@@ -647,8 +650,8 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         .mini-day-dot {
             position: absolute;
             bottom: 2px;
-            width: 4px;
-            height: 4px;
+            width: 3px;
+            height: 3px;
             background: #dc2626;
             border-radius: 50%;
         }
@@ -666,13 +669,226 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         }
         
         [data-theme="dark"] {
-    --bg-primary: #1a1a1a;
-    --bg-secondary: #2d2d2d;
-    --text-primary: #ffffff;
-    --text-secondary: #9ca3af;
-    --border-color: #404040;
-    --accent-color: #818cf8;
-}
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --border-color: #404040;
+            --accent-color: #818cf8;
+        }
+
+        /* Mobile Responsive Styles */
+        @media (max-width: 768px) {
+            .header {
+                padding: 12px 16px;
+            }
+            
+            .header-brand img {
+                height: 36px;
+            }
+            
+            .header-brand .brand-title {
+                font-size: 14px;
+            }
+            
+            .header-brand .brand-subtitle {
+                font-size: 11px;
+            }
+            
+            .btn-back {
+                padding: 6px 12px;
+                font-size: 13px;
+            }
+            
+            .container {
+                padding: 20px 12px;
+            }
+            
+            .calendar-controls {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+            }
+            
+            .calendar-controls select {
+                min-width: 100%;
+                order: -1;
+            }
+            
+            .view-toggle {
+                justify-content: center;
+            }
+            
+            .calendar-card {
+                padding: 16px;
+            }
+            
+            .calendar-header {
+                flex-direction: column;
+                gap: 12px;
+                align-items: flex-start;
+            }
+            
+            .calendar-header h2 {
+                font-size: 16px;
+            }
+            
+            .calendar-grid {
+                gap: 4px;
+            }
+            
+            .calendar-day-header {
+                font-size: 11px;
+                padding: 6px 2px;
+            }
+            
+            .calendar-day-number {
+                font-size: 12px;
+            }
+            
+            .calendar-day-bookings {
+                font-size: 8px;
+            }
+            
+            .calendar-day-label {
+                font-size: 7px;
+            }
+            
+            .sidebar-card {
+                padding: 16px;
+            }
+            
+            .time-slot-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+            
+            .year-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+            }
+            
+            .mini-month {
+                padding: 12px;
+            }
+            
+            .mini-month-header {
+                font-size: 13px;
+            }
+            
+            .mini-day {
+                font-size: 10px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .header {
+                padding: 10px 12px;
+            }
+            
+            .header-brand {
+                gap: 8px;
+            }
+            
+            .header-brand img {
+                height: 32px;
+            }
+            
+            .header-brand .brand-title {
+                font-size: 13px;
+            }
+            
+            .header-brand .brand-subtitle {
+                font-size: 10px;
+            }
+            
+            .btn-back {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+            
+            .container {
+                padding: 16px 8px;
+            }
+            
+            .calendar-card {
+                padding: 12px;
+                border-radius: 10px;
+            }
+            
+            .calendar-header h2 {
+                font-size: 15px;
+            }
+            
+            .calendar-grid {
+                gap: 3px;
+            }
+            
+            .calendar-day-header {
+                font-size: 10px;
+                padding: 4px 1px;
+            }
+            
+            .calendar-day {
+                border-radius: 6px;
+            }
+            
+            .calendar-day-number {
+                font-size: 11px;
+            }
+            
+            .sidebar-card {
+                padding: 12px;
+                border-radius: 10px;
+            }
+            
+            .sidebar-card h3 {
+                font-size: 15px;
+            }
+            
+            .time-slot-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 4px;
+            }
+            
+            .time-slot {
+                padding: 6px;
+                font-size: 11px;
+            }
+            
+            .year-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .mini-month {
+                padding: 10px;
+            }
+        }
+
+        /* For very small screens */
+        @media (max-width: 360px) {
+            .header-brand .brand-text {
+                max-width: 120px;
+            }
+            
+            .calendar-day-number {
+                font-size: 10px;
+            }
+            
+            .calendar-day-bookings {
+                display: none;
+            }
+            
+            .time-slot-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Desktop styles */
+        @media (min-width: 769px) {
+            .calendar-layout {
+                grid-template-columns: 1fr 300px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -685,7 +901,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
                 <div class="brand-subtitle">Calendar</div>
             </div>
         </div>
-        <a href="dashboard.php" class="btn-back">Back to Dashboard</a>
+        <a href="dashboard.php" class="btn-back">Back</a>
     </header>
 
     <div class="container">
@@ -702,7 +918,6 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
                 </select>
             </div>
             <div class="view-toggle">
-                <!-- Add click handlers for view toggle -->
                 <button class="active" onclick="switchView('month')">Month View</button>
                 <button onclick="switchView('year')">Year View</button>
             </div>

@@ -175,12 +175,13 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         
         .btn-back {
             padding: 8px 16px;
-            background: #f3f4f6;
+            background: white;
             color: #1a1a1a;
-            border: none;
+            border: 1px solid #e5e7eb;
             border-radius: 6px;
             text-decoration: none;
             font-weight: 500;
+            font-size: 14px;
         }
         
         .btn-back:hover {
@@ -659,7 +660,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
             <h1><?php echo htmlspecialchars($portal_name); ?></h1>
         </div>
-        <a href="dashboard.php" class="btn-back">← Back</a>
+        <a href="dashboard.php" class="btn-back">Back</a>
     </nav>
 
     <div class="container">

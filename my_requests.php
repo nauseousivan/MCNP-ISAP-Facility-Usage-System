@@ -59,100 +59,83 @@ $requests = $stmt->get_result();
             background: #f5f7fa;
         }
         
-        .navbar {
-            background: #fff;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            padding: 16px 32px;
+        .header {
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 16px;
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            justify-content: flex-start;
-            margin-bottom: 32px;
-            border-radius: 0 0 12px 12px;
+            margin-bottom: 24px;
         }
         
-        .navbar-brand {
+        .header-brand {
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 12px;
         }
         
-        .navbar-brand img {
-            height: 44px;
+        .header-brand img {
+            height: 40px;
             width: auto;
-            border-radius: 0;
-            background: #fff;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-            padding: 4px;
-            transition: box-shadow 0.2s;
         }
         
-        .navbar-brand img:hover {
-            box-shadow: 0 4px 16px rgba(102,126,234,0.12);
-        }
-        
-        .brand-text {
+        .header-brand .brand-text {
             display: flex;
             flex-direction: column;
-            justify-content: center;
         }
         
-        .brand-title {
-            font-size: 18px;
+        .header-brand .brand-title {
+            font-size: 16px;
             font-weight: 700;
             color: #1a1a1a;
-            letter-spacing: 0.01em;
         }
         
-        .brand-subtitle {
-            font-size: 13px;
+        .header-brand .brand-subtitle {
+            font-size: 12px;
             color: #6b7280;
-            margin-top: 2px;
-            letter-spacing: 0.01em;
         }
         
-        .navbar-menu {
-            display: flex;
-            gap: 16px;
-        }
-        
-        .navbar-menu a {
+        .btn-back {
             padding: 8px 16px;
-            text-decoration: none;
-            color: #6b7280;
-            font-weight: 500;
+            background: white;
+            color: #1a1a1a;
+            border: 1px solid #e5e7eb;
             border-radius: 6px;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 14px;
+            transition: background 0.2s;
         }
         
-        .navbar-menu a:hover,
-        .navbar-menu a.active {
-            background: #f3f4f6;
-            color: #1a1a1a;
+        .btn-back:hover {
+            background: #f9fafb;
         }
         
         .container {
             max-width: 1200px;
-            margin: 32px auto;
-            padding: 0 32px;
+            margin: 0 auto;
+            padding: 0 16px 32px;
         }
         
         .page-header {
             background: white;
             border-radius: 12px;
-            padding: 32px;
-            margin-bottom: 24px;
+            padding: 24px;
+            margin-bottom: 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         
         .page-header h2 {
-            font-size: 28px;
+            font-size: 24px;
             color: #1a1a1a;
             margin-bottom: 8px;
         }
         
         .filters {
             display: flex;
-            gap: 16px;
-            margin-top: 24px;
+            gap: 12px;
+            margin-top: 20px;
             flex-wrap: wrap;
         }
         
@@ -165,6 +148,7 @@ $requests = $stmt->get_result();
             font-weight: 500;
             text-decoration: none;
             color: #6b7280;
+            font-size: 14px;
         }
         
         .filter-btn:hover,
@@ -176,7 +160,7 @@ $requests = $stmt->get_result();
         
         .search-box {
             flex: 1;
-            min-width: 250px;
+            min-width: 200px;
         }
         
         .search-box input {
@@ -184,19 +168,21 @@ $requests = $stmt->get_result();
             padding: 8px 16px;
             border: 1px solid #d1d5db;
             border-radius: 6px;
-            font-size: 15px;
+            font-size: 14px;
         }
         
         .requests-card {
             background: white;
             border-radius: 12px;
-            padding: 32px;
+            padding: 24px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow-x: auto;
         }
         
         .requests-table {
             width: 100%;
             border-collapse: collapse;
+            min-width: 600px;
         }
         
         .requests-table th {
@@ -245,64 +231,210 @@ $requests = $stmt->get_result();
             border-radius: 6px;
             text-decoration: none;
             font-weight: 500;
+            font-size: 14px;
         }
         
         .btn-view:hover {
             background: #e5e7eb;
         }
 
-        .header {
-            background: white;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            padding: 16px 32px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-radius: 0 0 12px 12px;
-            margin-bottom: 32px;
+        /* Mobile Responsive Styles */
+        @media (max-width: 768px) {
+            .header {
+                padding: 12px 16px;
+                margin-bottom: 20px;
+            }
+            
+            .header-brand img {
+                height: 36px;
+            }
+            
+            .header-brand .brand-title {
+                font-size: 14px;
+            }
+            
+            .header-brand .brand-subtitle {
+                font-size: 11px;
+            }
+            
+            .btn-back {
+                padding: 6px 12px;
+                font-size: 13px;
+            }
+            
+            .container {
+                padding: 0 12px 24px;
+            }
+            
+            .page-header {
+                padding: 20px;
+                margin-bottom: 16px;
+            }
+            
+            .page-header h2 {
+                font-size: 22px;
+            }
+            
+            .filters {
+                gap: 8px;
+                margin-top: 16px;
+            }
+            
+            .filter-btn {
+                padding: 6px 12px;
+                font-size: 13px;
+            }
+            
+            .search-box {
+                min-width: 100%;
+                order: -1;
+            }
+            
+            .requests-card {
+                padding: 16px;
+                border-radius: 10px;
+            }
+            
+            .requests-table {
+                min-width: 500px;
+            }
+            
+            .requests-table th {
+                padding: 10px 8px;
+                font-size: 13px;
+            }
+            
+            .requests-table td {
+                padding: 12px 8px;
+                font-size: 14px;
+            }
+            
+            .status-badge {
+                padding: 4px 10px;
+                font-size: 11px;
+            }
+            
+            .btn-view {
+                padding: 6px 12px;
+                font-size: 13px;
+            }
         }
         
-        .header-brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
+        @media (max-width: 480px) {
+            .header {
+                padding: 10px 12px;
+            }
+            
+            .header-brand {
+                gap: 8px;
+            }
+            
+            .header-brand img {
+                height: 32px;
+            }
+            
+            .header-brand .brand-title {
+                font-size: 13px;
+            }
+            
+            .header-brand .brand-subtitle {
+                font-size: 10px;
+            }
+            
+            .btn-back {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+            
+            .container {
+                padding: 0 8px 20px;
+            }
+            
+            .page-header {
+                padding: 16px;
+                border-radius: 10px;
+            }
+            
+            .page-header h2 {
+                font-size: 20px;
+            }
+            
+            .filters {
+                flex-direction: column;
+                gap: 6px;
+            }
+            
+            .filter-btn {
+                text-align: center;
+                padding: 8px;
+            }
+            
+            .search-box input {
+                padding: 8px 12px;
+                font-size: 13px;
+            }
+            
+            .requests-card {
+                padding: 12px;
+                border-radius: 8px;
+            }
+            
+            .requests-table {
+                min-width: 450px;
+            }
+            
+            .requests-table th {
+                padding: 8px 6px;
+                font-size: 12px;
+            }
+            
+            .requests-table td {
+                padding: 10px 6px;
+                font-size: 13px;
+            }
         }
-        
-        .header-brand img {
-            height: 40px;
-            width: auto;
+
+        /* For very small screens */
+        @media (max-width: 360px) {
+            .header-brand .brand-text {
+                max-width: 120px;
+            }
+            
+            .page-header h2 {
+                font-size: 18px;
+            }
+            
+            .requests-table {
+                min-width: 400px;
+            }
         }
-        
-        .header-brand .brand-text {
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .header-brand .brand-title {
-            font-size: 16px;
-            font-weight: 700;
-            color: #1a1a1a;
-        }
-        
-        .header-brand .brand-subtitle {
-            font-size: 12px;
+
+        /* No requests message */
+        .no-requests {
+            text-align: center;
+            padding: 40px;
             color: #6b7280;
         }
         
-        .btn-back {
-            padding: 8px 16px;
-            background: white;
-            color: #1a1a1a;
-            border: 1px solid #e5e7eb;
-            border-radius: 6px;
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 14px;
-            transition: background 0.2s;
+        .no-requests p {
+            font-size: 16px;
+            margin-bottom: 16px;
         }
         
-        .btn-back:hover {
-            background: #f9fafb;
+        .btn-create {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #1a1a1a;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .btn-create:hover {
+            background: #000;
+            transform: translateY(-2px);
         }
     </style>
 </head>
@@ -315,7 +447,7 @@ $requests = $stmt->get_result();
                 <div class="brand-subtitle">Your Requests</div>
             </div>
         </div>
-        <a href="dashboard.php" class="btn-back">Back to Dashboard</a>
+        <a href="dashboard.php" class="btn-back">Back</a>
     </header>
 
     <div class="container">
@@ -324,45 +456,56 @@ $requests = $stmt->get_result();
             <p>View and manage all your facility requests</p>
             
             <form method="GET" class="filters">
+                <div class="search-box">
+                    <input type="text" name="search" placeholder="Search by control number or event type..." value="<?php echo htmlspecialchars($search); ?>">
+                </div>
                 <a href="?filter=all" class="filter-btn <?php echo $filter === 'all' ? 'active' : ''; ?>">All</a>
                 <a href="?filter=pending" class="filter-btn <?php echo $filter === 'pending' ? 'active' : ''; ?>">Pending</a>
                 <a href="?filter=approved" class="filter-btn <?php echo $filter === 'approved' ? 'active' : ''; ?>">Approved</a>
                 <a href="?filter=rejected" class="filter-btn <?php echo $filter === 'rejected' ? 'active' : ''; ?>">Rejected</a>
-                <div class="search-box">
-                    <input type="text" name="search" placeholder="Search by control number or event type..." value="<?php echo htmlspecialchars($search); ?>">
-                </div>
             </form>
         </div>
 
         <div class="requests-card">
-            <table class="requests-table">
-                <thead>
-                    <tr>
-                        <th>Control Number</th>
-                        <th>Event Type</th>
-                        <th>Date Submitted</th>
-                        <th>Status</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php while ($request = $requests->fetch_assoc()): ?>
+            <?php if ($requests->num_rows > 0): ?>
+                <table class="requests-table">
+                    <thead>
                         <tr>
-                            <td><strong><?php echo htmlspecialchars($request['control_number']); ?></strong></td>
-                            <td><?php echo htmlspecialchars($request['event_type']); ?></td>
-                            <td><?php echo date('M d, Y', strtotime($request['created_at'])); ?></td>
-                            <td>
-                                <span class="status-badge <?php echo $request['status']; ?>">
-                                    <?php echo ucfirst($request['status']); ?>
-                                </span>
-                            </td>
-                            <td>
-                                <a href="view_request.php?id=<?php echo $request['id']; ?>" class="btn-view">View</a>
-                            </td>
+                            <th>Control Number</th>
+                            <th>Event Type</th>
+                            <th>Date Submitted</th>
+                            <th>Status</th>
+                            <th>Action</th>
                         </tr>
-                    <?php endwhile; ?>
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        <?php while ($request = $requests->fetch_assoc()): ?>
+                            <tr>
+                                <td><strong><?php echo htmlspecialchars($request['control_number']); ?></strong></td>
+                                <td><?php echo htmlspecialchars($request['event_type']); ?></td>
+                                <td><?php echo date('M d, Y', strtotime($request['created_at'])); ?></td>
+                                <td>
+                                    <span class="status-badge <?php echo $request['status']; ?>">
+                                        <?php echo ucfirst($request['status']); ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="view_request.php?id=<?php echo $request['id']; ?>" class="btn-view">View</a>
+                                </td>
+                            </tr>
+                        <?php endwhile; ?>
+                    </tbody>
+                </table>
+            <?php else: ?>
+                <div class="no-requests">
+                    <p>No requests found.</p>
+                    <?php if ($filter !== 'all' || $search): ?>
+                        <a href="?filter=all" class="filter-btn">Show All Requests</a>
+                    <?php else: ?>
+                        <a href="create_request.php" class="btn-create">Create Your First Request</a>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
     <?php include 'chat_bot.php'; ?>
