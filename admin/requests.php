@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../config.php';
+require_once '../functions.php'; // ADD THIS LINE
 
 // Check if user is admin
 if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'Admin') {
@@ -10,7 +11,6 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'Admin') {
 
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
-// Handle status update
 // Handle status update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $request_id = $_POST['request_id'];
@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $user_id = $request_data['user_id'];
         $control_number = $request_data['control_number'];
         
-        // Update the request status
+        // Update the request status (FIXED - using lowercase status)
         $sql = "UPDATE facility_requests SET status = ?, admin_notes = ?, updated_at = NOW() WHERE id = ?";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("ssi", $new_status, $admin_notes, $request_id);
@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 $filter = $_GET['filter'] ?? 'all';
 $search = $_GET['search'] ?? '';
 
-// Build query
+// Build query (FIXED - handle both 'Pending' and 'pending' cases)
 $sql = "SELECT fr.*, u.name as user_name, u.email as user_email 
         FROM facility_requests fr 
         JOIN users u ON fr.user_id = u.id WHERE 1=1";
@@ -58,9 +58,14 @@ $params = [];
 $types = "";
 
 if ($filter !== 'all') {
-    $sql .= " AND fr.status = ?";
-    $params[] = $filter;
-    $types .= "s";
+    // Handle both uppercase and lowercase status values
+    if ($filter === 'pending') {
+        $sql .= " AND (fr.status = 'pending' OR fr.status = 'Pending')";
+    } else {
+        $sql .= " AND fr.status = ?";
+        $params[] = $filter;
+        $types .= "s";
+    }
 }
 
 if ($search) {
@@ -472,18 +477,24 @@ if (!empty($params)) {
                             <td><?php echo htmlspecialchars($request['event_type']); ?></td>
                             <td><?php echo date('M d, Y', strtotime($request['created_at'])); ?></td>
                             <td>
-                                <span class="status-badge <?php echo $request['status']; ?>">
+                               <span class="status-badge <?php echo strtolower($request['status']); ?>">
                                     <?php echo ucfirst($request['status']); ?>
                                 </span>
                             </td>
-                            <td>
-                                <a href="view_request.php?id=<?php echo $request['id']; ?>" class="btn-action btn-view">View</a>
-                                <?php if ($request['status'] === 'pending'): ?>
-                                    <button class="btn-action btn-approve" onclick="openModal(<?php echo $request['id']; ?>, 'approve')">Approve</button>
-                                    <button class="btn-action btn-reject" onclick="openModal(<?php echo $request['id']; ?>, 'reject')">Reject</button>
-                                <?php endif; ?>
-                            </td>
-                        </tr>
+                      <td>
+    <a href="view_request_admin.php?id=<?php echo $request['id']; ?>" class="btn-action btn-view">View</a>
+    
+    <!-- DEBUG: Show status and condition -->
+    <div style="font-size: 10px; color: red;">
+        Status: <?php echo $request['status']; ?><br>
+        Condition: <?php echo (strtolower($request['status']) === 'pending') ? 'TRUE' : 'FALSE'; ?>
+    </div>
+    
+    <?php if (strtolower($request['status']) === 'pending'): ?>
+        <button class="btn-action btn-approve" onclick="openModal(<?php echo $request['id']; ?>, 'approve')">Approve</button>
+        <button class="btn-action btn-reject" onclick="openModal(<?php echo $request['id']; ?>, 'reject')">Reject</button>
+    <?php endif; ?>
+</td>
                     <?php endwhile; ?>
                 </tbody>
             </table>
