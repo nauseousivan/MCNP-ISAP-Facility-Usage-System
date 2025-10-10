@@ -894,13 +894,15 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
 <body>
     <!-- Header -->
     <header class="header">
-        <div class="header-brand">
-            <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
-            <div class="brand-text">
-                <div class="brand-title"><?php echo htmlspecialchars($portal_name); ?></div>
-                <div class="brand-subtitle">Calendar</div>
-            </div>
+        <a href="dashboard.php" style="text-decoration: none; color: inherit;">
+    <div class="header-brand">
+        <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
+        <div class="brand-text">
+            <div class="brand-title"><?php echo htmlspecialchars($portal_name); ?></div>
+            <div class="brand-subtitle">Calendar</div>
         </div>
+    </div>
+</a>
         <a href="dashboard.php" class="btn-back">Back</a>
     </header>
 

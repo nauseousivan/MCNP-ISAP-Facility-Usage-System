@@ -655,14 +655,15 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
     </style>
 </head>
 <body>
-    <nav class="navbar no-print">
+  <nav class="navbar no-print">
+    <a href="dashboard.php" style="text-decoration: none; color: inherit;">
         <div class="navbar-brand">
             <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
             <h1><?php echo htmlspecialchars($portal_name); ?></h1>
         </div>
-        <a href="dashboard.php" class="btn-back">Back</a>
-    </nav>
-
+    </a>
+    <a href="dashboard.php" class="btn-back">Back</a>
+</nav>
     <div class="container">
         <div class="form-card">
             <div class="form-header">

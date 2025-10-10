@@ -440,6 +440,7 @@ $requests = $stmt->get_result();
 </head>
 <body>
     <header class="header">
+    <a href="dashboard.php" style="text-decoration: none; color: inherit;">
         <div class="header-brand">
             <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
             <div class="brand-text">
@@ -447,8 +448,9 @@ $requests = $stmt->get_result();
                 <div class="brand-subtitle">Your Requests</div>
             </div>
         </div>
-        <a href="dashboard.php" class="btn-back">Back</a>
-    </header>
+    </a>
+    <a href="dashboard.php" class="btn-back">Back</a>
+</header>
 
     <div class="container">
         <div class="page-header">

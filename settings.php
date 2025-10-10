@@ -557,6 +557,7 @@ $profile_picture = !empty($user['profile_picture']) ? $user['profile_picture'] :
 </head>
 <body>
     <header class="header">
+    <a href="dashboard.php" style="text-decoration: none; color: inherit;">
         <div class="header-brand">
             <img src="<?php echo $logo_file; ?>" alt="Logo">
             <div class="brand-text">
@@ -564,10 +565,11 @@ $profile_picture = !empty($user['profile_picture']) ? $user['profile_picture'] :
                 <div class="brand-subtitle">Settings</div>
             </div>
         </div>
-        <div class="header-actions">
-            <a href="dashboard.php" class="btn-back">Back</a>
-        </div>
-    </header>
+    </a>
+    <div class="header-actions">
+        <a href="dashboard.php" class="btn-back">Back</a>
+    </div>
+</header>
 
     <div class="container">
         <div class="page-header">

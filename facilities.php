@@ -624,9 +624,8 @@ $facilities = [
             }
         }
     </style>
-</head>
-<body>
-    <header class="header">
+<header class="header">
+    <a href="dashboard.php" style="text-decoration: none; color: inherit;">
         <div class="header-brand">
             <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
             <div class="brand-text">
@@ -634,8 +633,9 @@ $facilities = [
                 <div class="brand-subtitle">Browse Facilities</div>
             </div>
         </div>
-        <a href="dashboard.php" class="btn-back">Back</a>
-    </header>
+    </a>
+    <a href="dashboard.php" class="btn-back">Back</a>
+</header>
 
     <div class="container">
         <div class="page-header">

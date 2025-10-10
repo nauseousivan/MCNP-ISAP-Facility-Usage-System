@@ -339,13 +339,14 @@ $facilities = $stmt->get_result();
 </head>
 <body>
     <nav class="navbar">
+    <a href="dashboard.php" style="text-decoration: none; color: inherit;">
         <div class="navbar-brand">
             <img src="combined-logo.png" alt="Logo">
             <h1>MCNP-ISAP Facility Portal</h1>
         </div>
-        <a href="dashboard.php" class="btn-back">Back</a>
-    </nav>
-
+    </a>
+    <a href="dashboard.php" class="btn-back">Back</a>
+</nav>
     <div class="container">
         <div class="request-card">
             <div class="request-header">
