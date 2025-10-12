@@ -1,7 +1,6 @@
 <?php
 session_start();
 require_once '../config.php';
-require_once '../functions.php'; // ADD THIS LINE
 
 // Check if user is admin
 if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'Admin') {
@@ -17,59 +16,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $action = $_POST['action'];
     $admin_notes = $_POST['admin_notes'] ?? '';
     
-    $new_status = ($action === 'approve') ? 'approved' : 'rejected';
+    $status = ($action === 'approve') ? 'approved' : 'rejected';
     
-    // First get the request details to know the user_id
-    $request_sql = "SELECT user_id, control_number FROM facility_requests WHERE id = ?";
-    $request_stmt = $conn->prepare($request_sql);
-    $request_stmt->bind_param("i", $request_id);
-    $request_stmt->execute();
-    $request_data = $request_stmt->get_result()->fetch_assoc();
+    $sql = "UPDATE facility_requests SET status = ?, admin_notes = ? WHERE id = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("ssi", $status, $admin_notes, $request_id);
+    $stmt->execute();
     
-    if ($request_data) {
-        $user_id = $request_data['user_id'];
-        $control_number = $request_data['control_number'];
-        
-        // Update the request status (FIXED - using lowercase status)
-        $sql = "UPDATE facility_requests SET status = ?, admin_notes = ?, updated_at = NOW() WHERE id = ?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("ssi", $new_status, $admin_notes, $request_id);
-        
-        if ($stmt->execute()) {
-            // Add notification to the user
-            $notification_type = ($action === 'approve') ? 'request_approved' : 'request_rejected';
-            add_action_notification($conn, $user_id, $notification_type, ['control_number' => $control_number]);
-            
-            header("Location: requests.php?success=1");
-            exit();
-        }
-    }
+    header("Location: requests.php?success=1");
+    exit();
 }
 
 // Get filter
 $filter = $_GET['filter'] ?? 'all';
 $search = $_GET['search'] ?? '';
 
-// Build query (FIXED - handle both 'Pending' and 'pending' cases)
+// Build query
 $sql = "SELECT fr.*, u.name as user_name, u.email as user_email 
         FROM facility_requests fr 
-        JOIN users u ON fr.user_id = u.id WHERE 1=1";
+        JOIN users u ON fr.user_id = u.id 
+        WHERE 1=1";
 $params = [];
 $types = "";
 
-if ($filter !== 'all') {
-    // Handle both uppercase and lowercase status values
-    if ($filter === 'pending') {
-        $sql .= " AND (fr.status = 'pending' OR fr.status = 'Pending')";
-    } else {
-        $sql .= " AND fr.status = ?";
-        $params[] = $filter;
-        $types .= "s";
-    }
+if ($filter === 'pending') {
+    $sql .= " AND fr.status = 'pending'";
+} elseif ($filter === 'approved') {
+    $sql .= " AND fr.status = 'approved'";
+} elseif ($filter === 'rejected') {
+    $sql .= " AND fr.status = 'rejected'";
 }
 
 if ($search) {
-    $sql .= " AND (fr.control_number LIKE ? OR fr.event_type LIKE ? OR u.name LIKE ?)";
+    $sql .= " AND (fr.control_number LIKE ? OR u.name LIKE ? OR fr.department LIKE ?)";
     $search_param = "%$search%";
     $params[] = $search_param;
     $params[] = $search_param;
@@ -87,9 +66,12 @@ if (!empty($params)) {
 } else {
     $requests = $conn->query($sql);
 }
+
+// Get theme preference
+$theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="<?php echo $theme; ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -101,27 +83,83 @@ if (!empty($params)) {
             box-sizing: border-box;
         }
         
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f7fa;
-            display: flex;
+        :root {
+            --background: #ffffff;
+            --foreground: #0a0a0a;
+            --card: #ffffff;
+            --card-foreground: #0a0a0a;
+            --muted: #f5f5f5;
+            --muted-foreground: #737373;
+            --border: #e5e5e5;
+            --primary: #0a0a0a;
+            --primary-foreground: #fafafa;
+            --secondary: #f5f5f5;
+            --secondary-foreground: #0a0a0a;
+            --accent: #f5f5f5;
+            --accent-foreground: #0a0a0a;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --sidebar: #fafafa;
+            --sidebar-foreground: #0a0a0a;
+            --sidebar-border: #e5e5e5;
         }
         
+        .dark {
+            --background: #0a0a0a;
+            --foreground: #fafafa;
+            --card: #0a0a0a;
+            --card-foreground: #fafafa;
+            --muted: #262626;
+            --muted-foreground: #a3a3a3;
+            --border: #262626;
+            --primary: #fafafa;
+            --primary-foreground: #0a0a0a;
+            --secondary: #262626;
+            --secondary-foreground: #fafafa;
+            --accent: #262626;
+            --accent-foreground: #fafafa;
+            --sidebar: #171717;
+            --sidebar-foreground: #fafafa;
+            --sidebar-border: #262626;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--background);
+            color: var(--foreground);
+            display: flex;
+            min-height: 100vh;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        /* Sidebar */
         .sidebar {
             width: 260px;
-            background: #1a1a1a;
-            min-height: 100vh;
-            padding: 24px;
+            background: var(--sidebar);
+            border-right: 1px solid var(--sidebar-border);
+            padding: 24px 16px;
             position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            transition: all 0.3s ease;
+            z-index: 1000;
         }
         
         .sidebar-brand {
-            color: white;
-            font-size: 20px;
-            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 12px;
             margin-bottom: 32px;
-            padding-bottom: 24px;
-            border-bottom: 1px solid #374151;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--sidebar-foreground);
+        }
+        
+        .sidebar-brand img {
+            height: 32px;
+            width: auto;
         }
         
         .sidebar-menu {
@@ -129,83 +167,179 @@ if (!empty($params)) {
         }
         
         .sidebar-menu li {
-            margin-bottom: 8px;
+            margin-bottom: 4px;
         }
         
         .sidebar-menu a {
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 12px 16px;
-            color: #9ca3af;
+            padding: 10px 12px;
+            color: var(--muted-foreground);
             text-decoration: none;
             border-radius: 8px;
             transition: all 0.2s;
+            font-size: 14px;
+            font-weight: 500;
         }
         
-        .sidebar-menu a:hover,
+        .sidebar-menu a:hover {
+            background: var(--accent);
+            color: var(--accent-foreground);
+        }
+        
         .sidebar-menu a.active {
-            background: #374151;
-            color: white;
+            background: var(--primary);
+            color: var(--primary-foreground);
         }
         
         .sidebar-menu svg {
             width: 20px;
             height: 20px;
+            flex-shrink: 0;
         }
         
+        .sidebar-divider {
+            margin: 24px 0;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+        }
+        
+        /* Main Content */
         .main-content {
             margin-left: 260px;
             flex: 1;
-            padding: 32px;
+            display: flex;
+            flex-direction: column;
+            transition: margin-left 0.3s ease;
         }
         
-        .top-bar {
-            background: white;
-            border-radius: 12px;
-            padding: 24px 32px;
-            margin-bottom: 32px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        /* Top Nav */
+        .top-nav {
+            height: 64px;
+            border-bottom: 1px solid var(--border);
+            padding: 0 32px;
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            justify-content: space-between;
+            background: var(--background);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            transition: background-color 0.3s, border-color 0.3s;
         }
         
-        .top-bar h1 {
-            font-size: 28px;
-            color: #1a1a1a;
-        }
-        
-        .filters {
-            background: white;
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 24px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        
-        .filters-row {
+        .top-nav-left {
             display: flex;
+            align-items: center;
             gap: 16px;
+        }
+        
+        .top-nav h1 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+        
+        .top-nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .theme-toggle {
+            padding: 8px;
+            border-radius: 8px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            color: var(--foreground);
+            transition: background-color 0.2s;
+        }
+        
+        .theme-toggle:hover {
+            background: var(--muted);
+        }
+        
+        .theme-toggle svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Mobile menu button */
+        .mobile-menu-btn {
+            display: none;
+            padding: 8px;
+            background: transparent;
+            border: none;
+            color: var(--foreground);
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background-color 0.2s;
+        }
+
+        .mobile-menu-btn:hover {
+            background: var(--muted);
+        }
+
+        .mobile-menu-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+        
+        /* Content Area */
+        .content {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
+        }
+        
+        /* Alert */
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .alert.success {
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--success);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+        
+        /* Filters */
+        .filters {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            display: flex;
+            gap: 12px;
             flex-wrap: wrap;
+            align-items: center;
         }
         
         .filter-btn {
             padding: 8px 16px;
-            border: 1px solid #d1d5db;
-            background: white;
-            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--background);
+            border-radius: 8px;
             cursor: pointer;
             font-weight: 500;
             text-decoration: none;
-            color: #6b7280;
+            color: var(--foreground);
+            transition: all 0.2s;
+            font-size: 14px;
         }
         
         .filter-btn:hover,
         .filter-btn.active {
-            background: #1a1a1a;
-            color: white;
-            border-color: #1a1a1a;
+            background: var(--primary);
+            color: var(--primary-foreground);
+            border-color: var(--primary);
         }
         
         .search-box {
@@ -216,319 +350,498 @@ if (!empty($params)) {
         .search-box input {
             width: 100%;
             padding: 8px 16px;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            font-size: 15px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            background: var(--background);
+            color: var(--foreground);
         }
         
-        .requests-card {
-            background: white;
+        /* Card */
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
             border-radius: 12px;
             padding: 24px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+            transition: background-color 0.3s, border-color 0.3s;
         }
         
-        .requests-table {
+        /* Table */
+        .table {
             width: 100%;
             border-collapse: collapse;
         }
         
-        .requests-table th {
+        .table thead th {
             text-align: left;
             padding: 12px;
-            border-bottom: 2px solid #e5e7eb;
-            color: #6b7280;
+            font-size: 12px;
             font-weight: 600;
+            color: var(--muted-foreground);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .table tbody td {
+            padding: 16px 12px;
+            border-bottom: 1px solid var(--border);
             font-size: 14px;
         }
         
-        .requests-table td {
-            padding: 16px 12px;
-            border-bottom: 1px solid #e5e7eb;
+        .table tbody tr:hover {
+            background: var(--muted);
         }
         
-        .status-badge {
-            padding: 6px 12px;
-            border-radius: 20px;
+        /* Badge */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 6px;
             font-size: 12px;
             font-weight: 600;
             text-transform: uppercase;
-            display: inline-block;
+            letter-spacing: 0.3px;
         }
         
-        .status-badge.pending {
-            background: #fef3c7;
-            color: #92400e;
+        .badge.pending {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning);
         }
         
-        .status-badge.approved {
-            background: #d1fae5;
-            color: #065f46;
+        .badge.approved {
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--success);
         }
         
-        .status-badge.rejected {
-            background: #fee2e2;
-            color: #991b1b;
+        .badge.rejected {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
         }
         
-        .btn-action {
-            padding: 6px 12px;
+        /* Button */
+        .btn {
+            padding: 8px 16px;
             border: none;
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: pointer;
             font-weight: 500;
             font-size: 13px;
-            margin-right: 8px;
-        }
-        
-        .btn-view {
-            background: #f3f4f6;
-            color: #1a1a1a;
+            transition: all 0.2s;
             text-decoration: none;
             display: inline-block;
         }
         
-        .btn-approve {
-            background: #10b981;
-            color: white;
+        .btn-primary {
+            background: var(--primary);
+            color: var(--primary-foreground);
         }
         
-        .btn-reject {
-            background: #ef4444;
-            color: white;
+        .btn-primary:hover {
+            opacity: 0.9;
         }
         
-        .modal {
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--muted-foreground);
+        }
+        
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .filters {
+                gap: 10px;
+            }
+            
+            .search-box {
+                min-width: 200px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                width: 280px;
+            }
+            
+            .sidebar.mobile-open {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .content {
+                padding: 16px;
+            }
+            
+            .top-nav {
+                padding: 0 16px;
+                height: 60px;
+            }
+            
+            .top-nav h1 {
+                font-size: 18px;
+            }
+            
+            .mobile-menu-btn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .filters {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+            }
+            
+            .search-box {
+                width: 100%;
+                min-width: auto;
+            }
+            
+            .filter-btn {
+                text-align: center;
+            }
+            
+            .table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+            
+            .table thead th,
+            .table tbody td {
+                padding: 10px 8px;
+                font-size: 13px;
+            }
+            
+            .card {
+                padding: 16px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .content {
+                padding: 12px;
+            }
+            
+            .top-nav {
+                padding: 0 12px;
+            }
+            
+            .filters {
+                padding: 16px;
+            }
+            
+            .filter-btn {
+                padding: 10px 12px;
+                font-size: 13px;
+            }
+            
+            .table thead th,
+            .table tbody td {
+                padding: 8px 6px;
+                font-size: 12px;
+            }
+            
+            .btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+            
+            .badge {
+                font-size: 11px;
+                padding: 3px 8px;
+            }
+        }
+
+        /* Sidebar overlay for mobile */
+        .sidebar-overlay {
             display: none;
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 1000;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
         }
-        
-        .modal.active {
-            display: flex;
-            align-items: center;
-            justify-content: center;
+
+        .sidebar-overlay.active {
+            display: block;
         }
-        
-        .modal-content {
-            background: white;
-            border-radius: 12px;
-            padding: 32px;
-            max-width: 500px;
-            width: 90%;
+
+        body.sidebar-open {
+            overflow: hidden;
         }
-        
-        .modal-content h3 {
-            font-size: 20px;
-            margin-bottom: 16px;
-        }
-        
-        .modal-content textarea {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            font-family: inherit;
-            margin-bottom: 16px;
-            min-height: 100px;
-        }
-        
-        .modal-actions {
-            display: flex;
-            gap: 12px;
-            justify-content: flex-end;
-        }
-        
-        .btn-cancel {
-            padding: 10px 20px;
-            background: #f3f4f6;
-            color: #1a1a1a;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 500;
-        }
-        
-        .btn-confirm {
-            padding: 10px 20px;
-            background: #1a1a1a;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 500;
-        }
-        
-        .alert-success {
-            background: #d1fae5;
-            color: #065f46;
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin-bottom: 24px;
-        }
+        .btn-reject {
+    background: var(--danger);
+    color: white;
+}
+
+.btn-reject:hover {
+    background: #dc2626;
+    opacity: 0.9;
+}
     </style>
 </head>
 <body>
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-brand">
-            Admin Panel
-        </div>
-        <ul class="sidebar-menu">
-            <li>
-                <a href="index.php">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-                    </svg>
-                    Dashboard
-                </a>
-            </li>
-            <li>
-                <a href="requests.php" class="active">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                    </svg>
-                    Manage Requests
-                </a>
-            </li>
-            <li>
-                <a href="users.php">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
-                    </svg>
-                    Manage Users
-                </a>
-            </li>
-            <li>
-                <a href="facilities.php">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-                    </svg>
-                    Facilities
-                </a>
-            </li>
-            <li>
-                <a href="reports.php">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                    </svg>
-                    Reports
-                </a>
-            </li>
-            <li>
-                <a href="../dashboard.php">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-                    </svg>
-                    Back to Portal
-                </a>
-            </li>
-        </ul>
-    </aside>
+    <!-- Include Sidebar -->
+    <?php include 'sidebar.php'; ?>
+
+    <!-- Mobile Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
     <!-- Main Content -->
-    <main class="main-content">
-        <div class="top-bar">
-            <h1>Manage Requests</h1>
-        </div>
-
-        <?php if (isset($_GET['success'])): ?>
-            <div class="alert-success">
-                Request status updated successfully!
+    <div class="main-content">
+        <!-- Top Nav -->
+        <nav class="top-nav">
+            <div class="top-nav-left">
+                <button class="mobile-menu-btn" onclick="toggleSidebar()">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+                <h1>Manage Requests</h1>
             </div>
-        <?php endif; ?>
+            <div class="top-nav-actions">
+                <button class="theme-toggle" onclick="toggleTheme()">
+                    <svg class="sun-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: none;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+                    </svg>
+                    <svg class="moon-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+                    </svg>
+                </button>
+            </div>
+        </nav>
 
-        <!-- Filters -->
-        <div class="filters">
-            <form method="GET" class="filters-row">
+        <!-- Content -->
+        <main class="content">
+            <?php if (isset($_GET['success'])): ?>
+                <div class="alert success">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    Request updated successfully!
+                </div>
+            <?php endif; ?>
+
+            <!-- Filters -->
+            <div class="filters">
                 <a href="?filter=all" class="filter-btn <?php echo $filter === 'all' ? 'active' : ''; ?>">All</a>
                 <a href="?filter=pending" class="filter-btn <?php echo $filter === 'pending' ? 'active' : ''; ?>">Pending</a>
                 <a href="?filter=approved" class="filter-btn <?php echo $filter === 'approved' ? 'active' : ''; ?>">Approved</a>
                 <a href="?filter=rejected" class="filter-btn <?php echo $filter === 'rejected' ? 'active' : ''; ?>">Rejected</a>
                 <div class="search-box">
-                    <input type="text" name="search" placeholder="Search requests..." value="<?php echo htmlspecialchars($search); ?>">
+                    <form method="GET">
+                        <input type="hidden" name="filter" value="<?php echo htmlspecialchars($filter); ?>">
+                        <input type="text" name="search" placeholder="Search requests..." value="<?php echo htmlspecialchars($search); ?>">
+                    </form>
                 </div>
-            </form>
-        </div>
+            </div>
 
-        <!-- Requests Table -->
-        <div class="requests-card">
-            <table class="requests-table">
-                <thead>
-                    <tr>
-                        <th>Control Number</th>
-                        <th>Requestor</th>
-                        <th>Event Type</th>
-                        <th>Date</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php while ($request = $requests->fetch_assoc()): ?>
-                        <tr>
-                            <td><strong><?php echo htmlspecialchars($request['control_number']); ?></strong></td>
-                            <td><?php echo htmlspecialchars($request['user_name']); ?></td>
-                            <td><?php echo htmlspecialchars($request['event_type']); ?></td>
-                            <td><?php echo date('M d, Y', strtotime($request['created_at'])); ?></td>
-                            <td>
-                               <span class="status-badge <?php echo strtolower($request['status']); ?>">
-                                    <?php echo ucfirst($request['status']); ?>
-                                </span>
-                            </td>
-                      <td>
-    <a href="view_request_admin.php?id=<?php echo $request['id']; ?>" class="btn-action btn-view">View</a>
+            <!-- Requests Table -->
+<!-- Requests Table -->
+<div class="card">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Control Number</th>
+                <th>Requestor</th>
+                <th>Department</th>
+                <th>Event Type</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php while ($request = $requests->fetch_assoc()): ?>
+                <tr>
+                    <td><?php echo htmlspecialchars($request['control_number']); ?></td>
+                    <td>
+                        <?php echo htmlspecialchars($request['user_name']); ?><br>
+                        <small style="color: var(--muted-foreground);"><?php echo htmlspecialchars($request['user_email']); ?></small>
+                    </td>
+                    <td><?php echo htmlspecialchars($request['department']); ?></td>
+                    <td><?php echo htmlspecialchars($request['event_type']); ?></td>
+                    <td>
+                        <span class="badge <?php echo $request['status']; ?>">
+                            <?php echo ucfirst($request['status']); ?>
+                        </span>
+                    </td>
+                    <td><?php echo date('M j, Y', strtotime($request['created_at'])); ?></td>
+<!-- Requests Table -->
+<div class="card">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Control Number</th>
+                <th>Requestor</th>
+                <th>Department</th>
+                <th>Event Type</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php 
+            // Reset pointer and loop through requests again
+            $requests->data_seek(0);
+            while ($request = $requests->fetch_assoc()): 
+            ?>
+                <tr>
+                    <td><?php echo htmlspecialchars($request['control_number']); ?></td>
+                    <td>
+                        <?php echo htmlspecialchars($request['user_name']); ?><br>
+                        <small style="color: var(--muted-foreground);"><?php echo htmlspecialchars($request['user_email']); ?></small>
+                    </td>
+                    <td><?php echo htmlspecialchars($request['department']); ?></td>
+                    <td><?php echo htmlspecialchars($request['event_type']); ?></td>
+                    <td>
+                        <span class="badge <?php echo $request['status']; ?>">
+                            <?php echo ucfirst($request['status']); ?>
+                        </span>
+                    </td>
+                    <td><?php echo date('M j, Y', strtotime($request['created_at'])); ?></td>
+                    <td>
+                        <?php if (strtolower($request['status']) === 'pending'): ?>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <form method="POST" style="display: inline;">
+                                    <input type="hidden" name="request_id" value="<?php echo $request['id']; ?>">
+                                    <input type="hidden" name="admin_notes" value="">
+                                    <button type="submit" name="action" value="approve" class="btn btn-primary" onclick="return confirm('Approve this request?')">Approve</button>
+                                </form>
+                                <form method="POST" style="display: inline;">
+                                    <input type="hidden" name="request_id" value="<?php echo $request['id']; ?>">
+                                    <input type="hidden" name="admin_notes" value="">
+                                    <button type="submit" name="action" value="reject" class="btn btn-reject" onclick="return confirm('Reject this request?')">Reject</button>
+                                </form>
+                            </div>
+                        <?php else: ?>
+                            <a href="view_request_admin.php?id=<?php echo $request['id']; ?>" class="btn btn-primary">View</a>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            <?php endwhile; ?>
+        </tbody>
+    </table>
     
-    <!-- DEBUG: Show status and condition -->
-    <div style="font-size: 10px; color: red;">
-        Status: <?php echo $request['status']; ?><br>
-        Condition: <?php echo (strtolower($request['status']) === 'pending') ? 'TRUE' : 'FALSE'; ?>
-    </div>
-    
-    <?php if (strtolower($request['status']) === 'pending'): ?>
-        <button class="btn-action btn-approve" onclick="openModal(<?php echo $request['id']; ?>, 'approve')">Approve</button>
-        <button class="btn-action btn-reject" onclick="openModal(<?php echo $request['id']; ?>, 'reject')">Reject</button>
+    <?php if ($requests->num_rows === 0): ?>
+        <div class="empty-state">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <p>No requests found</p>
+        </div>
     <?php endif; ?>
-</td>
-                    <?php endwhile; ?>
-                </tbody>
-            </table>
+</div>
+                </tr>
+            <?php endwhile; ?>
+        </tbody>
+    </table>
+    
+    <?php if ($requests->num_rows === 0): ?>
+        <div class="empty-state">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <p>No requests found</p>
         </div>
-    </main>
-
-    <!-- Modal -->
-    <div id="actionModal" class="modal">
-        <div class="modal-content">
-            <h3 id="modalTitle">Confirm Action</h3>
-            <form method="POST" action="">
-                <input type="hidden" name="request_id" id="modalRequestId">
-                <input type="hidden" name="action" id="modalAction">
-                <label>Admin Notes (Optional)</label>
-                <textarea name="admin_notes" placeholder="Add notes for the requestor..."></textarea>
-                <div class="modal-actions">
-                    <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
-                    <button type="submit" class="btn-confirm">Confirm</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
+    <?php endif; ?>
+</div>
     <script>
-        function openModal(requestId, action) {
-            document.getElementById('modalRequestId').value = requestId;
-            document.getElementById('modalAction').value = action;
-            document.getElementById('modalTitle').textContent = action === 'approve' ? 'Approve Request' : 'Reject Request';
-            document.getElementById('actionModal').classList.add('active');
+        // Theme toggle functionality
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.classList.contains('dark') ? 'dark' : 'light';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            html.classList.remove(currentTheme);
+            html.classList.add(newTheme);
+            
+            // Save to cookie
+            document.cookie = `theme=${newTheme}; path=/; max-age=31536000`;
+            
+            // Update icon
+            updateThemeIcon(newTheme);
+        }
+        
+        function updateThemeIcon(theme) {
+            const sunIcon = document.querySelector('.sun-icon');
+            const moonIcon = document.querySelector('.moon-icon');
+            
+            if (theme === 'dark') {
+                sunIcon.style.display = 'block';
+                moonIcon.style.display = 'none';
+            } else {
+                sunIcon.style.display = 'none';
+                moonIcon.style.display = 'block';
+            }
+        }
+        
+        // Initialize theme icon on load
+        document.addEventListener('DOMContentLoaded', function() {
+            const theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+            updateThemeIcon(theme);
+        });
+
+        // Mobile sidebar functionality
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            sidebar.classList.toggle('mobile-open');
+            overlay.classList.toggle('active');
+            document.body.classList.toggle('sidebar-open');
         }
 
-        function closeModal() {
-            document.getElementById('actionModal').classList.remove('active');
-        }
+        // Close sidebar when clicking overlay
+        document.getElementById('sidebarOverlay').addEventListener('click', function() {
+            toggleSidebar();
+        });
+
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', function(event) {
+            const sidebar = document.querySelector('.sidebar');
+            const mobileBtn = document.querySelector('.mobile-menu-btn');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            if (window.innerWidth <= 768 && 
+                !sidebar.contains(event.target) && 
+                !mobileBtn.contains(event.target) &&
+                sidebar.classList.contains('mobile-open')) {
+                toggleSidebar();
+            }
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            if (window.innerWidth > 768 && sidebar.classList.contains('mobile-open')) {
+                sidebar.classList.remove('mobile-open');
+                overlay.classList.remove('active');
+                document.body.classList.remove('sidebar-open');
+            }
+        });
+        
     </script>
 </body>
 </html>

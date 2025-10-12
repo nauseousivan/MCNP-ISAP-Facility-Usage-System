@@ -29,9 +29,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     exit();
 }
 
-// Get filter
+// Get filters
 $filter = $_GET['filter'] ?? 'all';
 $search = $_GET['search'] ?? '';
+$user_type_filter = $_GET['user_type'] ?? '';
+$status_filter = $_GET['status'] ?? '';
 
 // Build query
 $sql = "SELECT * FROM users WHERE 1=1";
@@ -55,6 +57,22 @@ if ($search) {
     $types .= "sss";
 }
 
+if ($user_type_filter && $user_type_filter !== 'all') {
+    $sql .= " AND user_type = ?";
+    $params[] = $user_type_filter;
+    $types .= "s";
+}
+
+if ($status_filter && $status_filter !== 'all') {
+    if ($status_filter === 'verified') {
+        $sql .= " AND verified = 1 AND approved = 0";
+    } elseif ($status_filter === 'approved') {
+        $sql .= " AND approved = 1";
+    } elseif ($status_filter === 'not_verified') {
+        $sql .= " AND verified = 0";
+    }
+}
+
 $sql .= " ORDER BY created_at DESC";
 
 if (!empty($params)) {
@@ -65,9 +83,12 @@ if (!empty($params)) {
 } else {
     $users = $conn->query($sql);
 }
+
+// Get theme preference from cookie
+$theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="<?php echo $theme; ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -79,27 +100,83 @@ if (!empty($params)) {
             box-sizing: border-box;
         }
         
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f7fa;
-            display: flex;
+        :root {
+            --background: #ffffff;
+            --foreground: #0a0a0a;
+            --card: #ffffff;
+            --card-foreground: #0a0a0a;
+            --muted: #f5f5f5;
+            --muted-foreground: #737373;
+            --border: #e5e5e5;
+            --primary: #0a0a0a;
+            --primary-foreground: #fafafa;
+            --secondary: #f5f5f5;
+            --secondary-foreground: #0a0a0a;
+            --accent: #f5f5f5;
+            --accent-foreground: #0a0a0a;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --sidebar: #fafafa;
+            --sidebar-foreground: #0a0a0a;
+            --sidebar-border: #e5e5e5;
         }
         
+        .dark {
+            --background: #0a0a0a;
+            --foreground: #fafafa;
+            --card: #0a0a0a;
+            --card-foreground: #fafafa;
+            --muted: #262626;
+            --muted-foreground: #a3a3a3;
+            --border: #262626;
+            --primary: #fafafa;
+            --primary-foreground: #0a0a0a;
+            --secondary: #262626;
+            --secondary-foreground: #fafafa;
+            --accent: #262626;
+            --accent-foreground: #fafafa;
+            --sidebar: #171717;
+            --sidebar-foreground: #fafafa;
+            --sidebar-border: #262626;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--background);
+            color: var(--foreground);
+            display: flex;
+            min-height: 100vh;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        /* Sidebar */
         .sidebar {
             width: 260px;
-            background: #1a1a1a;
-            min-height: 100vh;
-            padding: 24px;
+            background: var(--sidebar);
+            border-right: 1px solid var(--sidebar-border);
+            padding: 24px 16px;
             position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            transition: all 0.3s ease;
+            z-index: 1000;
         }
         
         .sidebar-brand {
-            color: white;
-            font-size: 20px;
-            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 12px;
             margin-bottom: 32px;
-            padding-bottom: 24px;
-            border-bottom: 1px solid #374151;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--sidebar-foreground);
+        }
+        
+        .sidebar-brand img {
+            height: 32px;
+            width: auto;
         }
         
         .sidebar-menu {
@@ -107,335 +184,762 @@ if (!empty($params)) {
         }
         
         .sidebar-menu li {
-            margin-bottom: 8px;
+            margin-bottom: 4px;
         }
         
         .sidebar-menu a {
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 12px 16px;
-            color: #9ca3af;
+            padding: 10px 12px;
+            color: var(--muted-foreground);
             text-decoration: none;
             border-radius: 8px;
             transition: all 0.2s;
+            font-size: 14px;
+            font-weight: 500;
         }
         
-        .sidebar-menu a:hover,
+        .sidebar-menu a:hover {
+            background: var(--accent);
+            color: var(--accent-foreground);
+        }
+        
         .sidebar-menu a.active {
-            background: #374151;
-            color: white;
+            background: var(--primary);
+            color: var(--primary-foreground);
         }
         
         .sidebar-menu svg {
             width: 20px;
             height: 20px;
+            flex-shrink: 0;
         }
         
+        .sidebar-divider {
+            margin: 24px 0;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+        }
+        
+        /* Main Content */
         .main-content {
             margin-left: 260px;
             flex: 1;
-            padding: 32px;
-        }
-        
-        .top-bar {
-            background: white;
-            border-radius: 12px;
-            padding: 24px 32px;
-            margin-bottom: 32px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
+            transition: margin-left 0.3s ease;
+        }
+        
+        /* Top Nav */
+        .top-nav {
+            height: 64px;
+            border-bottom: 1px solid var(--border);
+            padding: 0 32px;
+            display: flex;
             align-items: center;
+            justify-content: space-between;
+            background: var(--background);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            transition: background-color 0.3s, border-color 0.3s;
         }
         
-        .top-bar h1 {
-            font-size: 28px;
-            color: #1a1a1a;
+        .top-nav-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
         }
         
-        .filters {
-            background: white;
+        .top-nav h1 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+        
+        .top-nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .theme-toggle {
+            padding: 8px;
+            border-radius: 8px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            color: var(--foreground);
+            transition: background-color 0.2s;
+        }
+        
+        .theme-toggle:hover {
+            background: var(--muted);
+        }
+        
+        .theme-toggle svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Mobile menu button */
+        .mobile-menu-btn {
+            display: none;
+            padding: 8px;
+            background: transparent;
+            border: none;
+            color: var(--foreground);
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background-color 0.2s;
+        }
+
+        .mobile-menu-btn:hover {
+            background: var(--muted);
+        }
+
+        .mobile-menu-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+        
+        /* Content Area */
+        .content {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
+        }
+        
+        /* Card */
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
             border-radius: 12px;
             padding: 24px;
             margin-bottom: 24px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: background-color 0.3s, border-color 0.3s;
         }
         
-        .filters-row {
+        .card-header {
             display: flex;
-            gap: 16px;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--foreground);
+        }
+        
+        /* Filters */
+        .filters {
+            display: flex;
+            gap: 12px;
             flex-wrap: wrap;
+            margin-bottom: 20px;
         }
         
         .filter-btn {
             padding: 8px 16px;
-            border: 1px solid #d1d5db;
-            background: white;
-            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--card);
+            border-radius: 8px;
             cursor: pointer;
             font-weight: 500;
             text-decoration: none;
-            color: #6b7280;
+            color: var(--muted-foreground);
+            transition: all 0.2s;
+            font-size: 14px;
         }
         
         .filter-btn:hover,
         .filter-btn.active {
-            background: #1a1a1a;
-            color: white;
-            border-color: #1a1a1a;
-        }
-        
-        .search-box {
-            flex: 1;
-            min-width: 250px;
+            background: var(--primary);
+            color: var(--primary-foreground);
+            border-color: var(--primary);
         }
         
         .search-box input {
-            width: 100%;
             padding: 8px 16px;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            font-size: 15px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            background: var(--card);
+            color: var(--foreground);
+            min-width: 250px;
         }
         
-        .users-card {
-            background: white;
+        .search-box input::placeholder {
+            color: var(--muted-foreground);
+        }
+
+        /* Advanced Filters */
+        .advanced-filters {
+            background: var(--card);
+            border: 1px solid var(--border);
             border-radius: 12px;
-            padding: 24px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            align-items: end;
+        }
+
+        .filter-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .filter-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--muted-foreground);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .filter-group select,
+        .filter-group input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            background: var(--background);
+            color: var(--foreground);
+        }
+
+        .btn-apply {
+            padding: 10px 24px;
+            background: var(--primary);
+            color: var(--primary-foreground);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .btn-apply:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
         }
         
-        .users-table {
+        /* Table */
+        .table {
             width: 100%;
             border-collapse: collapse;
         }
         
-        .users-table th {
+        .table thead th {
             text-align: left;
             padding: 12px;
-            border-bottom: 2px solid #e5e7eb;
-            color: #6b7280;
+            font-size: 12px;
             font-weight: 600;
+            color: var(--muted-foreground);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .table tbody td {
+            padding: 16px 12px;
+            border-bottom: 1px solid var(--border);
             font-size: 14px;
         }
         
-        .users-table td {
-            padding: 16px 12px;
-            border-bottom: 1px solid #e5e7eb;
+        .table tbody tr:hover {
+            background: var(--muted);
         }
         
-        .user-badge {
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            display: inline-block;
-        }
-        
-        .user-badge.admin {
-            background: #dbeafe;
-            color: #1e40af;
-        }
-        
-        .user-badge.faculty {
-            background: #e0e7ff;
-            color: #4338ca;
-        }
-        
-        .user-badge.student {
-            background: #fce7f3;
-            color: #9f1239;
-        }
-        
-        .user-badge.staff {
-            background: #d1fae5;
-            color: #065f46;
-        }
-        
-        .status-badge {
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            display: inline-block;
-        }
-        
-        .status-badge.pending {
-            background: #fef3c7;
-            color: #92400e;
-        }
-        
-        .status-badge.approved {
-            background: #d1fae5;
-            color: #065f46;
-        }
-        
-        .btn-action {
-            padding: 6px 12px;
-            border: none;
+        /* Badge */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
             border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        
+        .badge.admin {
+            background: rgba(59, 130, 246, 0.1);
+            color: #3b82f6;
+        }
+        
+        .badge.faculty {
+            background: rgba(139, 92, 246, 0.1);
+            color: #8b5cf6;
+        }
+        
+        .badge.student {
+            background: rgba(236, 72, 153, 0.1);
+            color: #ec4899;
+        }
+        
+        .badge.staff {
+            background: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+        }
+        
+        .badge.pending {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning);
+        }
+        
+        .badge.approved {
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--success);
+        }
+
+        .badge.not-verified {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
             cursor: pointer;
             font-weight: 500;
             font-size: 13px;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-block;
             margin-right: 8px;
         }
         
         .btn-approve {
-            background: #10b981;
+            background: var(--success);
             color: white;
         }
         
         .btn-reject {
-            background: #ef4444;
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-activate {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-delete {
+            background: var(--danger);
             color: white;
         }
         
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        
+        /* Alert */
         .alert-success {
-            background: #d1fae5;
-            color: #065f46;
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--success);
             padding: 12px 16px;
             border-radius: 8px;
             margin-bottom: 24px;
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+        
+        /* Sidebar overlay for mobile */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        .sidebar-overlay.active {
+            display: block;
+        }
+
+        body.sidebar-open {
+            overflow: hidden;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .table {
+                font-size: 13px;
+            }
+            
+            .table thead th,
+            .table tbody td {
+                padding: 10px 8px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                width: 280px;
+            }
+            
+            .sidebar.mobile-open {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .content {
+                padding: 16px;
+            }
+            
+            .top-nav {
+                padding: 0 16px;
+                height: 60px;
+            }
+            
+            .top-nav h1 {
+                font-size: 18px;
+            }
+            
+            .mobile-menu-btn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .filters {
+                flex-direction: column;
+                gap: 8px;
+            }
+            
+            .search-box input {
+                min-width: 100%;
+                width: 100%;
+            }
+
+            .filter-row {
+                flex-direction: column;
+            }
+
+            .filter-group {
+                width: 100%;
+            }
+            
+            .card {
+                padding: 16px;
+            }
+            
+            .table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+            
+            .table thead th,
+            .table tbody td {
+                padding: 10px 6px;
+                font-size: 12px;
+            }
+            
+            .btn {
+                padding: 6px 12px;
+                font-size: 12px;
+                margin-right: 4px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .content {
+                padding: 12px;
+            }
+            
+            .top-nav {
+                padding: 0 12px;
+            }
+            
+            .filters {
+                gap: 6px;
+            }
+            
+            .filter-btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+            
+            .card {
+                padding: 12px;
+            }
+            
+            .table {
+                font-size: 11px;
+            }
+            
+            .badge {
+                font-size: 10px;
+                padding: 3px 8px;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-brand">
-            Admin Panel
-        </div>
-        <ul class="sidebar-menu">
-            <li>
-                <a href="index.php">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-                    </svg>
-                    Dashboard
-                </a>
-            </li>
-            <li>
-                <a href="requests.php">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                    </svg>
-                    Manage Requests
-                </a>
-            </li>
-            <li>
-                <a href="users.php" class="active">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
-                    </svg>
-                    Manage Users
-                </a>
-            </li>
-            <li>
-                <a href="facilities.php">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-                    </svg>
-                    Facilities
-                </a>
-            </li>
-            <li>
-                <a href="reports.php">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                    </svg>
-                    Reports
-                </a>
-            </li>
-            <li>
-                <a href="../dashboard.php">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-                    </svg>
-                    Back to Portal
-                </a>
-            </li>
-        </ul>
-    </aside>
+    
+     <!-- Sidebar -->
+    <?php include 'sidebar.php'; ?>
 
-    <!-- Main Content -->
-    <main class="main-content">
-        <div class="top-bar">
-            <h1>Manage Users</h1>
-        </div>
+    <!-- Mobile Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-        <?php if (isset($_GET['success'])): ?>
-            <div class="alert-success">
-                User action completed successfully!
+     <!-- Main Content -->
+    <div class="main-content">
+         <!-- Top Nav -->
+        <nav class="top-nav">
+            <div class="top-nav-left">
+                <button class="mobile-menu-btn" onclick="toggleSidebar()">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+                <h1>Manage Users</h1>
             </div>
-        <?php endif; ?>
+            <div class="top-nav-actions">
+                <button class="theme-toggle" onclick="toggleTheme()">
+                    <svg class="sun-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: none;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+                    </svg>
+                    <svg class="moon-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+                    </svg>
+                </button>
+            </div>
+        </nav>
 
-        <!-- Filters -->
-        <div class="filters">
-            <form method="GET" class="filters-row">
-                <a href="?filter=all" class="filter-btn <?php echo $filter === 'all' ? 'active' : ''; ?>">All Users</a>
-                <a href="?filter=pending" class="filter-btn <?php echo $filter === 'pending' ? 'active' : ''; ?>">Pending Approval</a>
-                <a href="?filter=approved" class="filter-btn <?php echo $filter === 'approved' ? 'active' : ''; ?>">Approved</a>
-                <a href="?filter=admin" class="filter-btn <?php echo $filter === 'admin' ? 'active' : ''; ?>">Admins</a>
-                <div class="search-box">
-                    <input type="text" name="search" placeholder="Search users..." value="<?php echo htmlspecialchars($search); ?>">
+         <!-- Content -->
+        <main class="content">
+            <?php if (isset($_GET['success'])): ?>
+                <div class="alert-success">
+                    User action completed successfully!
                 </div>
-            </form>
-        </div>
+            <?php endif; ?>
 
-        <!-- Users Table -->
-        <div class="users-card">
-            <table class="users-table">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Department</th>
-                        <th>User Type</th>
-                        <th>Status</th>
-                        <th>Registered</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php while ($user = $users->fetch_assoc()): ?>
+             <!-- Quick Filters -->
+            <div class="card">
+                <form method="GET" class="filters">
+                    <a href="?filter=all" class="filter-btn <?php echo $filter === 'all' ? 'active' : ''; ?>">All Users</a>
+                    <a href="?filter=pending" class="filter-btn <?php echo $filter === 'pending' ? 'active' : ''; ?>">Pending</a>
+                    <a href="?filter=approved" class="filter-btn <?php echo $filter === 'approved' ? 'active' : ''; ?>">Approved</a>
+                    <a href="?filter=admin" class="filter-btn <?php echo $filter === 'admin' ? 'active' : ''; ?>">Admins</a>
+                    <div class="search-box">
+                        <input type="text" name="search" placeholder="Search users..." value="<?php echo htmlspecialchars($search); ?>">
+                    </div>
+                </form>
+            </div>
+
+            <!-- Advanced Filters -->
+            <div class="advanced-filters">
+                <form method="GET" id="advancedFilters">
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label for="search">Search Users</label>
+                            <input type="text" id="search" name="search" placeholder="Search by name, email, or department..." value="<?php echo htmlspecialchars($search); ?>">
+                        </div>
+                        <div class="filter-group">
+                            <label for="user_type">User Type</label>
+                            <select id="user_type" name="user_type">
+                                <option value="all">All Types</option>
+                                <option value="Student" <?php echo $user_type_filter === 'Student' ? 'selected' : ''; ?>>Student</option>
+                                <option value="Faculty" <?php echo $user_type_filter === 'Faculty' ? 'selected' : ''; ?>>Faculty</option>
+                                <option value="Staff" <?php echo $user_type_filter === 'Staff' ? 'selected' : ''; ?>>Staff</option>
+                                <option value="Admin" <?php echo $user_type_filter === 'Admin' ? 'selected' : ''; ?>>Admin</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="status">Status</label>
+                            <select id="status" name="status">
+                                <option value="all">All Status</option>
+                                <option value="not_verified" <?php echo $status_filter === 'not_verified' ? 'selected' : ''; ?>>Not Verified</option>
+                                <option value="verified" <?php echo $status_filter === 'verified' ? 'selected' : ''; ?>>Verified (Pending)</option>
+                                <option value="approved" <?php echo $status_filter === 'approved' ? 'selected' : ''; ?>>Approved</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <button type="submit" class="btn-apply">Apply Filters</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+             <!-- Users Table -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Users</h2>
+                </div>
+                <table class="table">
+                    <thead>
                         <tr>
-                            <td><strong><?php echo htmlspecialchars($user['name']); ?></strong></td>
-                            <td><?php echo htmlspecialchars($user['email']); ?></td>
-                            <td><?php echo htmlspecialchars($user['department']); ?></td>
-                            <td>
-                                <span class="user-badge <?php echo strtolower($user['user_type']); ?>">
-                                    <?php echo $user['user_type']; ?>
-                                </span>
-                            </td>
-                            <td>
-                                <?php if ($user['verified'] == 0): ?>
-                                    <span class="status-badge" style="background: #fee2e2; color: #991b1b;">Not Verified</span>
-                                <?php elseif ($user['approved'] == 0): ?>
-                                    <span class="status-badge pending">Pending</span>
-                                <?php else: ?>
-                                    <span class="status-badge approved">Approved</span>
-                                <?php endif; ?>
-                            </td>
-                            <td><?php echo date('M d, Y', strtotime($user['created_at'])); ?></td>
-                            <td>
-                                <?php if ($user['verified'] == 1 && $user['approved'] == 0): ?>
-                                    <form method="POST" style="display: inline;">
-                                        <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
-                                        <button type="submit" name="action" value="approve" class="btn-action btn-approve">Approve</button>
-                                        <button type="submit" name="action" value="reject" class="btn-action btn-reject">Reject</button>
-                                    </form>
-                                <?php else: ?>
-                                    -
-                                <?php endif; ?>
-                            </td>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Department</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Registered</th>
+                            <th>Actions</th>
                         </tr>
-                    <?php endwhile; ?>
-                </tbody>
-            </table>
-        </div>
-    </main>
+                    </thead>
+                    <tbody>
+                        <?php while ($user = $users->fetch_assoc()): ?>
+                            <tr>
+                                <td><strong><?php echo htmlspecialchars($user['name']); ?></strong></td>
+                                <td><?php echo htmlspecialchars($user['email']); ?></td>
+                                <td><?php echo htmlspecialchars($user['department']); ?></td>
+                                <td>
+                                    <span class="badge <?php echo strtolower($user['user_type']); ?>">
+                                        <?php echo $user['user_type']; ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <?php 
+                                    // Determine user status based on verified and approved fields
+                                    if ($user['verified'] == 0) {
+                                        echo '<span class="badge not-verified">Not Verified</span>';
+                                    } elseif ($user['approved'] == 0) {
+                                        echo '<span class="badge pending">Pending Approval</span>';
+                                    } else {
+                                        echo '<span class="badge approved">Approved</span>';
+                                    }
+                                    ?>
+                                </td>
+                                <td><?php echo date('M d, Y', strtotime($user['created_at'])); ?></td>
+                                <td>
+                                    <?php if ($user['verified'] == 1 && $user['approved'] == 0): ?>
+                                        <!-- Pending approval - show approve/reject buttons -->
+                                        <form method="POST" style="display: inline;">
+                                            <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
+                                            <button type="submit" name="action" value="approve" class="btn btn-approve">Approve</button>
+                                            <button type="submit" name="action" value="reject" class="btn btn-reject">Reject</button>
+                                        </form>
+                                    <?php elseif ($user['user_type'] !== 'Admin'): ?>
+                                        <!-- For non-admin users who are already approved or not verified -->
+                                        <?php if ($user['verified'] == 0): ?>
+                                            <!-- Not verified - show activate option -->
+                                            <form method="POST" style="display: inline;">
+                                                <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
+                                                <button type="submit" name="action" value="approve" class="btn btn-activate">Activate</button>
+                                            </form>
+                                        <?php endif; ?>
+                                        <!-- Always show delete option for non-admin users -->
+                                        <form method="POST" style="display: inline;">
+                                            <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
+                                            <button type="submit" name="action" value="reject" class="btn btn-delete" onclick="return confirm('Are you sure you want to delete this user?')">Delete</button>
+                                        </form>
+                                    <?php else: ?>
+                                        <!-- Admin users - no actions -->
+                                        <span style="color: var(--muted-foreground);">-</span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endwhile; ?>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.classList.contains('dark') ? 'dark' : 'light';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            html.classList.remove(currentTheme);
+            html.classList.add(newTheme);
+            
+            document.cookie = `theme=${newTheme}; path=/; max-age=31536000`;
+            updateThemeIcon(newTheme);
+        }
+        
+        function updateThemeIcon(theme) {
+            const sunIcon = document.querySelector('.sun-icon');
+            const moonIcon = document.querySelector('.moon-icon');
+            
+            if (theme === 'dark') {
+                sunIcon.style.display = 'block';
+                moonIcon.style.display = 'none';
+            } else {
+                sunIcon.style.display = 'none';
+                moonIcon.style.display = 'block';
+            }
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            sidebar.classList.toggle('mobile-open');
+            overlay.classList.toggle('active');
+            document.body.classList.toggle('sidebar-open');
+        }
+
+        // Close sidebar when clicking overlay
+        document.getElementById('sidebarOverlay').addEventListener('click', function() {
+            toggleSidebar();
+        });
+
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', function(event) {
+            const sidebar = document.querySelector('.sidebar');
+            const mobileBtn = document.querySelector('.mobile-menu-btn');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            if (window.innerWidth <= 768 && 
+                !sidebar.contains(event.target) && 
+                !mobileBtn.contains(event.target) &&
+                sidebar.classList.contains('mobile-open')) {
+                toggleSidebar();
+            }
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            if (window.innerWidth > 768 && sidebar.classList.contains('mobile-open')) {
+                sidebar.classList.remove('mobile-open');
+                overlay.classList.remove('active');
+                document.body.classList.remove('sidebar-open');
+            }
+        });
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+            updateThemeIcon(theme);
+        });
+
+        // Auto-submit advanced filters when selections change
+        document.getElementById('user_type').addEventListener('change', function() {
+            document.getElementById('advancedFilters').submit();
+        });
+
+        document.getElementById('status').addEventListener('change', function() {
+            document.getElementById('advancedFilters').submit();
+        });
+    </script>
 </body>
 </html>

@@ -31,9 +31,12 @@ foreach ($facilities_list as $facility) {
     $result = $stmt->get_result()->fetch_assoc();
     $facility_stats[$facility] = $result;
 }
+
+// Get theme preference
+$theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="<?php echo $theme; ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -45,27 +48,83 @@ foreach ($facilities_list as $facility) {
             box-sizing: border-box;
         }
         
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f7fa;
-            display: flex;
+        :root {
+            --background: #ffffff;
+            --foreground: #0a0a0a;
+            --card: #ffffff;
+            --card-foreground: #0a0a0a;
+            --muted: #f5f5f5;
+            --muted-foreground: #737373;
+            --border: #e5e5e5;
+            --primary: #0a0a0a;
+            --primary-foreground: #fafafa;
+            --secondary: #f5f5f5;
+            --secondary-foreground: #0a0a0a;
+            --accent: #f5f5f5;
+            --accent-foreground: #0a0a0a;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --sidebar: #fafafa;
+            --sidebar-foreground: #0a0a0a;
+            --sidebar-border: #e5e5e5;
         }
         
+        .dark {
+            --background: #0a0a0a;
+            --foreground: #fafafa;
+            --card: #0a0a0a;
+            --card-foreground: #fafafa;
+            --muted: #262626;
+            --muted-foreground: #a3a3a3;
+            --border: #262626;
+            --primary: #fafafa;
+            --primary-foreground: #0a0a0a;
+            --secondary: #262626;
+            --secondary-foreground: #fafafa;
+            --accent: #262626;
+            --accent-foreground: #fafafa;
+            --sidebar: #171717;
+            --sidebar-foreground: #fafafa;
+            --sidebar-border: #262626;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--background);
+            color: var(--foreground);
+            display: flex;
+            min-height: 100vh;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        /* Sidebar */
         .sidebar {
             width: 260px;
-            background: #1a1a1a;
-            min-height: 100vh;
-            padding: 24px;
+            background: var(--sidebar);
+            border-right: 1px solid var(--sidebar-border);
+            padding: 24px 16px;
             position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            transition: all 0.3s ease;
+            z-index: 1000;
         }
         
         .sidebar-brand {
-            color: white;
-            font-size: 20px;
-            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 12px;
             margin-bottom: 32px;
-            padding-bottom: 24px;
-            border-bottom: 1px solid #374151;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--sidebar-foreground);
+        }
+        
+        .sidebar-brand img {
+            height: 32px;
+            width: auto;
         }
         
         .sidebar-menu {
@@ -73,50 +132,133 @@ foreach ($facilities_list as $facility) {
         }
         
         .sidebar-menu li {
-            margin-bottom: 8px;
+            margin-bottom: 4px;
         }
         
         .sidebar-menu a {
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 12px 16px;
-            color: #9ca3af;
+            padding: 10px 12px;
+            color: var(--muted-foreground);
             text-decoration: none;
             border-radius: 8px;
             transition: all 0.2s;
+            font-size: 14px;
+            font-weight: 500;
         }
         
-        .sidebar-menu a:hover,
+        .sidebar-menu a:hover {
+            background: var(--accent);
+            color: var(--accent-foreground);
+        }
+        
         .sidebar-menu a.active {
-            background: #374151;
-            color: white;
+            background: var(--primary);
+            color: var(--primary-foreground);
         }
         
         .sidebar-menu svg {
             width: 20px;
             height: 20px;
+            flex-shrink: 0;
         }
         
+        .sidebar-divider {
+            margin: 24px 0;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+        }
+        
+        /* Main Content */
         .main-content {
             margin-left: 260px;
             flex: 1;
+            display: flex;
+            flex-direction: column;
+            transition: margin-left 0.3s ease;
+        }
+        
+        /* Top Nav */
+        .top-nav {
+            height: 64px;
+            border-bottom: 1px solid var(--border);
+            padding: 0 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--background);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        
+        .top-nav-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .top-nav h1 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+        
+        .top-nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .theme-toggle {
+            padding: 8px;
+            border-radius: 8px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            color: var(--foreground);
+            transition: background-color 0.2s;
+        }
+        
+        .theme-toggle:hover {
+            background: var(--muted);
+        }
+        
+        .theme-toggle svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Mobile menu button */
+        .mobile-menu-btn {
+            display: none;
+            padding: 8px;
+            background: transparent;
+            border: none;
+            color: var(--foreground);
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background-color 0.2s;
+        }
+
+        .mobile-menu-btn:hover {
+            background: var(--muted);
+        }
+
+        .mobile-menu-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+        
+        /* Content Area */
+        .content {
+            flex: 1;
             padding: 32px;
+            overflow-y: auto;
         }
         
-        .top-bar {
-            background: white;
-            border-radius: 12px;
-            padding: 24px 32px;
-            margin-bottom: 32px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        
-        .top-bar h1 {
-            font-size: 28px;
-            color: #1a1a1a;
-        }
-        
+        /* Facilities Grid */
         .facilities-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -124,125 +266,283 @@ foreach ($facilities_list as $facility) {
         }
         
         .facility-card {
-            background: white;
+            background: var(--card);
+            border: 1px solid var(--border);
             border-radius: 12px;
             padding: 24px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+        
+        .facility-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
         }
         
         .facility-card h3 {
             font-size: 18px;
-            color: #1a1a1a;
-            margin-bottom: 16px;
+            color: var(--foreground);
+            margin-bottom: 20px;
+            font-weight: 600;
         }
         
         .facility-stats {
-            display: flex;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
             gap: 16px;
         }
         
         .stat-item {
-            flex: 1;
-            padding: 12px;
-            background: #f9fafb;
-            border-radius: 8px;
+            padding: 16px;
+            background: var(--muted);
+            border-radius: 10px;
+            text-align: center;
         }
         
         .stat-label {
             font-size: 12px;
-            color: #6b7280;
-            margin-bottom: 4px;
+            color: var(--muted-foreground);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
         }
         
         .stat-value {
-            font-size: 24px;
+            font-size: 28px;
             font-weight: 700;
-            color: #1a1a1a;
+            color: var(--foreground);
+        }
+        
+        .stat-value.approved {
+            color: var(--success);
+        }
+        
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .facilities-grid {
+                grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+                gap: 20px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                width: 280px;
+            }
+            
+            .sidebar.mobile-open {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .content {
+                padding: 16px;
+            }
+            
+            .top-nav {
+                padding: 0 16px;
+                height: 60px;
+            }
+            
+            .top-nav h1 {
+                font-size: 18px;
+            }
+            
+            .mobile-menu-btn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .facilities-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+            
+            .facility-card {
+                padding: 20px;
+            }
+            
+            .facility-stats {
+                gap: 12px;
+            }
+            
+            .stat-value {
+                font-size: 24px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .content {
+                padding: 12px;
+            }
+            
+            .top-nav {
+                padding: 0 12px;
+            }
+            
+            .facility-card {
+                padding: 16px;
+            }
+            
+            .facility-stats {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+            
+            .stat-item {
+                padding: 12px;
+            }
+        }
+
+        /* Sidebar overlay for mobile */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        .sidebar-overlay.active {
+            display: block;
+        }
+
+        body.sidebar-open {
+            overflow: hidden;
         }
     </style>
 </head>
 <body>
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-brand">
-            Admin Panel
-        </div>
-        <ul class="sidebar-menu">
-            <li>
-                <a href="index.php">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-                    </svg>
-                    Dashboard
-                </a>
-            </li>
-            <li>
-                <a href="requests.php">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                    </svg>
-                    Manage Requests
-                </a>
-            </li>
-            <li>
-                <a href="users.php">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
-                    </svg>
-                    Manage Users
-                </a>
-            </li>
-            <li>
-                <a href="facilities.php" class="active">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-                    </svg>
-                    Facilities
-                </a>
-            </li>
-            <li>
-                <a href="reports.php">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                    </svg>
-                    Reports
-                </a>
-            </li>
-            <li>
-                <a href="../dashboard.php">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-                    </svg>
-                    Back to Portal
-                </a>
-            </li>
-        </ul>
-    </aside>
+    <!-- Include Sidebar -->
+    <?php include 'sidebar.php'; ?>
+
+    <!-- Mobile Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
     <!-- Main Content -->
-    <main class="main-content">
-        <div class="top-bar">
-            <h1>Facilities Overview</h1>
-            <p style="color: #6b7280; margin-top: 8px;">View booking statistics for all facilities</p>
-        </div>
+    <div class="main-content">
+        <!-- Top Nav -->
+        <nav class="top-nav">
+            <div class="top-nav-left">
+                <button class="mobile-menu-btn" onclick="toggleSidebar()">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+                <h1>Facilities Overview</h1>
+            </div>
+            <div class="top-nav-actions">
+                <button class="theme-toggle" onclick="toggleTheme()">
+                    <svg class="sun-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: none;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+                    </svg>
+                    <svg class="moon-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+                    </svg>
+                </button>
+            </div>
+        </nav>
 
-        <div class="facilities-grid">
-            <?php foreach ($facility_stats as $facility => $stats): ?>
-                <div class="facility-card">
-                    <h3><?php echo htmlspecialchars($facility); ?></h3>
-                    <div class="facility-stats">
-                        <div class="stat-item">
-                            <div class="stat-label">Total Bookings</div>
-                            <div class="stat-value"><?php echo $stats['total_bookings']; ?></div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-label">Approved</div>
-                            <div class="stat-value" style="color: #10b981;"><?php echo $stats['approved_bookings']; ?></div>
+        <!-- Content -->
+        <main class="content">
+            <div class="facilities-grid">
+                <?php foreach ($facility_stats as $facility => $stats): ?>
+                    <div class="facility-card">
+                        <h3><?php echo htmlspecialchars($facility); ?></h3>
+                        <div class="facility-stats">
+                            <div class="stat-item">
+                                <div class="stat-label">Total</div>
+                                <div class="stat-value"><?php echo $stats['total_bookings']; ?></div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">Approved</div>
+                                <div class="stat-value approved"><?php echo $stats['approved_bookings']; ?></div>
+                            </div>
                         </div>
                     </div>
-                </div>
-            <?php endforeach; ?>
-        </div>
-    </main>
+                <?php endforeach; ?>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.classList.contains('dark') ? 'dark' : 'light';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            html.classList.remove(currentTheme);
+            html.classList.add(newTheme);
+            
+            document.cookie = `theme=${newTheme}; path=/; max-age=31536000`;
+            updateThemeIcon(newTheme);
+        }
+        
+        function updateThemeIcon(theme) {
+            const sunIcon = document.querySelector('.sun-icon');
+            const moonIcon = document.querySelector('.moon-icon');
+            
+            if (theme === 'dark') {
+                sunIcon.style.display = 'block';
+                moonIcon.style.display = 'none';
+            } else {
+                sunIcon.style.display = 'none';
+                moonIcon.style.display = 'block';
+            }
+        }
+        
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            sidebar.classList.toggle('mobile-open');
+            overlay.classList.toggle('active');
+            document.body.classList.toggle('sidebar-open');
+        }
+
+        // Close sidebar when clicking overlay
+        document.getElementById('sidebarOverlay').addEventListener('click', function() {
+            toggleSidebar();
+        });
+
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', function(event) {
+            const sidebar = document.querySelector('.sidebar');
+            const mobileBtn = document.querySelector('.mobile-menu-btn');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            if (window.innerWidth <= 768 && 
+                !sidebar.contains(event.target) && 
+                !mobileBtn.contains(event.target) &&
+                sidebar.classList.contains('mobile-open')) {
+                toggleSidebar();
+            }
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            if (window.innerWidth > 768 && sidebar.classList.contains('mobile-open')) {
+                sidebar.classList.remove('mobile-open');
+                overlay.classList.remove('active');
+                document.body.classList.remove('sidebar-open');
+            }
+        });
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+            updateThemeIcon(theme);
+        });
+    </script>
 </body>
 </html>

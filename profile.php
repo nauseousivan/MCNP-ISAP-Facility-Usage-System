@@ -25,22 +25,18 @@ $error = '';
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (isset($_POST['update_profile'])) {
         $name = $_POST['name'];
-        $department = $_POST['department'];
-        $program = $_POST['program'];
         $phone = $_POST['phone'];
         $bio = $_POST['bio'];
         
         // Check what specifically changed for more specific notifications
         $changed_fields = [];
         if ($name != $user['name']) $changed_fields[] = 'name';
-        if ($department != $user['department']) $changed_fields[] = 'department';
-        if ($program != $user['program']) $changed_fields[] = 'program';
         if ($phone != $user['phone_number']) $changed_fields[] = 'phone';
         if ($bio != $user['bio']) $changed_fields[] = 'bio';
         
-        $sql = "UPDATE users SET name = ?, department = ?, program = ?, phone_number = ?, bio = ? WHERE id = ?";
+        $sql = "UPDATE users SET name = ?, phone_number = ?, bio = ? WHERE id = ?";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("sssssi", $name, $department, $program, $phone, $bio, $user_id);
+        $stmt->bind_param("sssi", $name, $phone, $bio, $user_id);
         
         if ($stmt->execute()) {
             $_SESSION['user_name'] = $name;
@@ -66,27 +62,61 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
     
     if (isset($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] == 0) {
-        // ... existing file validation code ...
+        $allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+        $max_size = 5 * 1024 * 1024; // 5MB
         
-        if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $upload_path)) {
-            $sql = "UPDATE users SET profile_picture = ? WHERE id = ?";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param("si", $upload_path, $user_id);
-            
-            if ($stmt->execute()) {
-                // Add specific notification for profile picture update
-                add_action_notification($conn, $user_id, 'profile_picture_update');
-                
-                $success = "Profile picture updated successfully!";
-                $user['profile_picture'] = $upload_path;
-            } else {
-                $error = "Error saving profile picture.";
+        $file_type = $_FILES['profile_picture']['type'];
+        $file_size = $_FILES['profile_picture']['size'];
+        
+        // Validate file type
+        if (!in_array($file_type, $allowed_types)) {
+            $error = "Only JPG, JPEG, PNG, GIF, and WebP images are allowed.";
+        }
+        // Validate file size
+        elseif ($file_size > $max_size) {
+            $error = "Image size must be less than 5MB.";
+        }
+        else {
+            // Create uploads directory if it doesn't exist
+            $upload_dir = 'uploads/profiles/';
+            if (!is_dir($upload_dir)) {
+                mkdir($upload_dir, 0755, true);
             }
-        } else {
-            $error = "Error uploading file.";
+            
+            // Generate unique filename
+            $file_extension = pathinfo($_FILES['profile_picture']['name'], PATHINFO_EXTENSION);
+            $filename = 'profile_' . $user_id . '_' . time() . '.' . $file_extension;
+            $upload_path = $upload_dir . $filename;
+            
+            // Delete old profile picture if exists
+            if (!empty($user['profile_picture']) && file_exists($user['profile_picture'])) {
+                unlink($user['profile_picture']);
+            }
+            
+            if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $upload_path)) {
+                $sql = "UPDATE users SET profile_picture = ? WHERE id = ?";
+                $stmt = $conn->prepare($sql);
+                $stmt->bind_param("si", $upload_path, $user_id);
+                
+                if ($stmt->execute()) {
+                    // Add specific notification for profile picture update
+                    add_action_notification($conn, $user_id, 'profile_picture_update');
+                    
+                    $success = "Profile picture updated successfully!";
+                    $user['profile_picture'] = $upload_path;
+                    
+                    // Update session with new profile picture path
+                    $_SESSION['profile_picture'] = $upload_path;
+                } else {
+                    $error = "Error saving profile picture.";
+                }
+            } else {
+                $error = "Error uploading file.";
+            }
         }
     }
 }
+
 $logo_file = $GLOBALS['logo_file'];
 $portal_name = $GLOBALS['portal_name'];
 $portal_subtitle = $GLOBALS['portal_subtitle'];
@@ -111,7 +141,6 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
         
         .header {
             background: white;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             padding: 16px;
             display: flex;
             justify-content: space-between;
@@ -335,7 +364,8 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
         
         input:disabled {
             background: #f9fafb;
-            color: #9ca3af;
+            color: #6b7280;
+            cursor: not-allowed;
         }
         
         .btn-submit {
@@ -484,16 +514,6 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
                 font-size: 13px;
                 margin-bottom: 6px;
             }
-            .logo-link {
-    display: flex;
-    align-items: center;
-    text-decoration: none;
-    color: inherit;
-}
-
-.logo-link:hover {
-    opacity: 0.8;
-}
             
             input[type="text"],
             input[type="email"],
@@ -616,42 +636,19 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
                 font-size: 14px;
             }
         }
-        
-        /* For very small screens */
-        @media (max-width: 360px) {
-            .header-brand .brand-text {
-                max-width: 120px;
-            }
-            
-            .profile-avatar-container {
-                width: 70px;
-                height: 70px;
-            }
-            
-            .profile-avatar {
-                width: 70px;
-                height: 70px;
-                font-size: 24px;
-            }
-            
-            .profile-stats {
-                grid-template-columns: 1fr;
-                gap: 8px;
-            }
-        }
     </style>
 </head>
 <body>
     <header class="header">
-        <a href="dashboard.php" style="text-decoration: none; color: inherit;">
-    <div class="header-brand">
-        <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
-        <div class="brand-text">
-            <div class="brand-title"><?php echo htmlspecialchars($portal_name); ?></div>
-            <div class="brand-subtitle">Profile Settings</div>
-        </div>
-    </div>
-</a>
+        <a href="dashboard.php" class="logo-link">
+            <div class="header-brand">
+                <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
+                <div class="brand-text">
+                    <div class="brand-title"><?php echo htmlspecialchars($portal_name); ?></div>
+                    <div class="brand-subtitle">Profile Settings</div>
+                </div>
+            </div>
+        </a>
         <a href="dashboard.php" class="btn-back">Back</a>
     </header>
 
@@ -732,21 +729,19 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
 
                     <div class="form-group">
                         <label>Department/Office</label>
-                        <input type="text" name="department" value="<?php echo htmlspecialchars($user['department']); ?>" required>
+                        <input type="text" value="<?php echo htmlspecialchars($user['department']); ?>" disabled>
                     </div>
 
                     <div class="form-group">
                         <label>Program/Course</label>
-                        <input type="text" name="program" value="<?php echo htmlspecialchars($user['program']); ?>" required>
+                        <input type="text" value="<?php echo htmlspecialchars($user['program']); ?>" disabled>
                     </div>
 
-                    <!-- Changed input name from phone_number to phone -->
                     <div class="form-group">
                         <label>Phone Number</label>
                         <input type="tel" name="phone" value="<?php echo htmlspecialchars($user['phone_number'] ?? ''); ?>" placeholder="+63 XXX XXX XXXX">
                     </div>
 
-                    <!-- Added bio field -->
                     <div class="form-group">
                         <label>Bio</label>
                         <textarea name="bio" placeholder="Tell us about yourself..."><?php echo htmlspecialchars($user['bio'] ?? ''); ?></textarea>

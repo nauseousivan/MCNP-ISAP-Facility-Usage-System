@@ -661,6 +661,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
             <h1><?php echo htmlspecialchars($portal_name); ?></h1>
         </div>
+        
     </a>
     <a href="dashboard.php" class="btn-back">Back</a>
 </nav>
