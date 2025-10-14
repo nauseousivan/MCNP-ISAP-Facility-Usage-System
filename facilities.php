@@ -26,95 +26,25 @@ if ($result->num_rows > 0) {
 // Use the theme
 $logo_file = $GLOBALS['logo_file'];
 $portal_name = $GLOBALS['portal_name'];
-// Facilities list with descriptions
-$facilities = [
-    [
-        'name' => 'HM Laboratory',
-        'capacity' => '40 students',
-        'description' => 'Fully equipped laboratory for medical and health sciences with state-of-the-art equipment and safety features.',
-        'amenities' => ['Projector', 'Air Conditioning', 'Lab Equipment'],
-        'image' => 'img/hm.webp?height=400&width=600'
-    ],
-    [
-        'name' => 'Function Hall',
-        'capacity' => '200 people',
-        'description' => 'Large hall suitable for conferences, seminars, and events with professional audio-visual equipment and comfortable seating.',
-        'amenities' => ['Sound System', 'Projector', 'Air Conditioning', 'Stage'],
-        'image' => 'img/function.jpg?height=400&width=600'
-    ],
-    [
-        'name' => 'Conference Hall',
-        'capacity' => '100 people',
-        'description' => 'Professional conference room with modern facilities perfect for business meetings and academic conferences.',
-        'amenities' => ['Projector', 'Air Conditioning', 'Whiteboard', 'WiFi'],
-        'image' => 'img/conference.jpg?height=400&width=600'
-    ],
-    [
-        'name' => 'Gymnasium',
-        'capacity' => '500 people',
-        'description' => 'Multi-purpose gymnasium for sports and large gatherings with professional basketball court and bleacher seating.',
-        'amenities' => ['Basketball Court', 'Sound System', 'Bleachers'],
-        'image' => 'img/gym.jpg?height=400&width=600'
-    ],
-    [
-        'name' => 'AVR 1',
-        'capacity' => '50 people',
-        'description' => 'Audio-visual room with multimedia equipment ideal for presentations and video conferences.',
-        'amenities' => ['Projector', 'Sound System', 'Air Conditioning'],
-        'image' => 'img/avr1.jpg?height=400&width=600'
-    ],
-    [
-        'name' => 'AVR 2',
-        'capacity' => '50 people',
-        'description' => 'Audio-visual room with multimedia equipment ideal for presentations and video conferences.',
-        'amenities' => ['Projector', 'Sound System', 'Air Conditioning'],
-        'image' => 'img/avr2.jpg?height=400&width=600'
-    ],
-    [
-        'name' => 'AVR 3',
-        'capacity' => '50 people',
-        'description' => 'Audio-visual room with multimedia equipment ideal for presentations and video conferences.',
-        'amenities' => ['Projector', 'Sound System', 'Air Conditioning'],
-        'image' => 'img/avr3.webp?height=400&width=600'
-    ],
-    [
-        'name' => 'AMPHI 1',
-        'capacity' => '150 people',
-        'description' => 'Amphitheater-style classroom for lectures with tiered seating for optimal viewing and acoustics.',
-        'amenities' => ['Projector', 'Sound System', 'Air Conditioning'],
-        'image' => 'img/amph1.webp?height=400&width=600'
-    ],
-    [
-        'name' => 'AMPHI 2',
-        'capacity' => '150 people',
-        'description' => 'Amphitheater-style classroom for lectures with tiered seating for optimal viewing and acoustics.',
-        'amenities' => ['Projector', 'Sound System', 'Air Conditioning'],
-        'image' => 'img/amph2.jpg?height=400&width=600'
-    ],
-    [
-        'name' => 'AMPHI 3',
-        'capacity' => '150 people',
-        'description' => 'Amphitheater-style classroom for lectures with tiered seating for optimal viewing and acoustics.',
-        'amenities' => ['Projector', 'Sound System', 'Air Conditioning'],
-        'image' => 'img/amph3.jpg?height=400&width=600'
-    ],
-    [
-        'name' => 'Reading Area',
-        'capacity' => '30 people',
-        'description' => 'Quiet study area for individual or group study with comfortable seating and excellent lighting.',
-        'amenities' => ['WiFi', 'Air Conditioning', 'Study Tables'],
-        'image' => 'img/ra.jpg?height=400&width=600'
-    ],
-    [
-        'name' => 'Studio Room',
-        'capacity' => '20 people',
-        'description' => 'Recording and production studio with professional equipment and soundproofing for multimedia projects.',
-        'amenities' => ['Recording Equipment', 'Soundproofing', 'Air Conditioning'],
-        'image' => 'img/studio.jpg?height=400&width=600'
-    ]
-];
 
+// Get facilities from database
+$facilities = [];
+$sql = "SELECT * FROM facilities WHERE is_active = TRUE ORDER BY name";
+$result = $conn->query($sql);
+if ($result->num_rows > 0) {
+    while ($row = $result->fetch_assoc()) {
+        $facilities[] = [
+            'id' => $row['id'],
+            'name' => $row['name'],
+            'capacity' => $row['capacity'],
+            'description' => $row['description'],
+            'amenities' => json_decode($row['amenities'], true),
+            'image' => $row['image_path']
+        ];
+    }
+}
 ?>
+
 <!DOCTYPE html>
 <html lang="en" data-theme="<?php echo htmlspecialchars($theme); ?>">
 <head>
@@ -132,7 +62,8 @@ $facilities = [
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #f8f9fa;
         }
-                :root {
+        
+        :root {
             --bg-primary: #ffffff;
             --bg-secondary: #f8f9fa;
             --text-primary: #1a1a1a;
@@ -196,6 +127,7 @@ $facilities = [
         [data-theme="dark"] .facility-description {
             color: var(--text-secondary);
         }
+        
         .header {
             background: white;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
@@ -283,13 +215,11 @@ $facilities = [
             cursor: pointer;
         }
         
-        /* Added hover effect with smooth transform and shadow */
         .facility-card:hover {
             transform: translateY(-8px);
             box-shadow: 0 12px 24px rgba(0,0,0,0.15);
         }
         
-        /* Added facility image container */
         .facility-image {
             width: 100%;
             height: 200px;
@@ -364,7 +294,6 @@ $facilities = [
             transform: translateY(-2px);
         }
         
-        /* Added modal styles for facility details popup */
         .modal {
             display: none;
             position: fixed;
@@ -499,7 +428,7 @@ $facilities = [
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
         
-        /* Mobile Responsive Styles - COMPACT VERSION */
+        /* Mobile Responsive Styles */
         @media (max-width: 768px) {
             .header {
                 padding: 12px 16px;
@@ -534,19 +463,17 @@ $facilities = [
                 font-size: 14px;
             }
             
-            /* COMPACT MOBILE GRID - 2 columns */
             .facilities-grid {
                 grid-template-columns: repeat(2, 1fr);
                 gap: 12px;
             }
             
-            /* SMALLER CARDS */
             .facility-card {
                 border-radius: 8px;
             }
             
             .facility-image {
-                height: 120px; /* Much smaller images */
+                height: 120px;
             }
             
             .facility-content {
@@ -590,7 +517,6 @@ $facilities = [
                 border-radius: 4px;
             }
             
-            /* Modal adjustments for mobile */
             .modal-content {
                 width: 95%;
                 margin: 10% auto;
@@ -631,7 +557,6 @@ $facilities = [
                 font-size: 22px;
             }
             
-            /* Single column on very small screens */
             .facilities-grid {
                 grid-template-columns: 1fr;
                 gap: 12px;
@@ -677,7 +602,6 @@ $facilities = [
             }
         }
 
-        /* For tablets in landscape or larger phones */
         @media (min-width: 481px) and (max-width: 768px) {
             .facilities-grid {
                 grid-template-columns: repeat(2, 1fr);
@@ -688,7 +612,6 @@ $facilities = [
             }
         }
 
-        /* For larger tablets */
         @media (min-width: 769px) and (max-width: 1024px) {
             .facilities-grid {
                 grid-template-columns: repeat(3, 1fr);
@@ -699,18 +622,20 @@ $facilities = [
             }
         }
     </style>
-<header class="header">
-    <a href="dashboard.php" style="text-decoration: none; color: inherit;">
-        <div class="header-brand">
-            <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
-            <div class="brand-text">
-                <div class="brand-title"><?php echo htmlspecialchars($portal_name); ?></div>
-                <div class="brand-subtitle">Browse Facilities</div>
+</head>
+<body>
+    <header class="header">
+        <a href="dashboard.php" style="text-decoration: none; color: inherit;">
+            <div class="header-brand">
+                <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
+                <div class="brand-text">
+                    <div class="brand-title"><?php echo htmlspecialchars($portal_name); ?></div>
+                    <div class="brand-subtitle">Browse Facilities</div>
+                </div>
             </div>
-        </div>
-    </a>
-    <a href="dashboard.php" class="btn-back">Back</a>
-</header>
+        </a>
+        <a href="dashboard.php" class="btn-back">Back</a>
+    </header>
 
     <div class="container">
         <div class="page-header">
@@ -719,7 +644,7 @@ $facilities = [
         </div>
 
         <div class="facilities-grid">
-            <?php if (isset($facilities) && is_array($facilities)): ?>
+            <?php if (isset($facilities) && is_array($facilities) && count($facilities) > 0): ?>
                 <?php foreach ($facilities as $index => $facility): ?>
                     <div class="facility-card" onclick="openModal(<?php echo $index; ?>)">
                         <img src="<?php echo htmlspecialchars($facility['image']); ?>" alt="<?php echo htmlspecialchars($facility['name']); ?>" class="facility-image">

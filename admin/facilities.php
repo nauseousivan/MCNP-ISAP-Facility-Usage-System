@@ -11,12 +11,15 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'Admin') {
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
 // Get facility usage statistics
-$facilities_list = [
-    'HM Laboratory', 'Function Hall', 'Conference Hall', 'Hotel Room',
-    'TM Laboratory', 'Gymnasium', 'AVR 1', 'AVR 2', 'AVR 3',
-    'AMPHI 1', 'AMPHI 2', 'AMPHI 3', 'Quadrangle', 'Reading Area',
-    'Studio Room', 'Cabbo La Vista', 'Pamplona La Vista', 'ISAP-Tug Retreat House'
-];
+// Get facilities from database for statistics
+$facilities_list = [];
+$sql = "SELECT name FROM facilities WHERE is_active = TRUE ORDER BY name";
+$result = $conn->query($sql);
+if ($result->num_rows > 0) {
+    while ($row = $result->fetch_assoc()) {
+        $facilities_list[] = $row['name'];
+    }
+}
 
 $facility_stats = [];
 foreach ($facilities_list as $facility) {

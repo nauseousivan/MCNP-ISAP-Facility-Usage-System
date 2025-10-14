@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['get_suggestions'])) {
                 <img src="ariana2.png" style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover; margin-right: 12px; border: 2px solid rgba(255,255,255,0.3);">
                 <div style="flex: 1;">
                     <div style="font-weight: 600; font-size: 16px; margin-bottom: 2px;">Ariana Grande</div>
-                    <div style="font-size: 12px; opacity: 0.9;">MCNP Facility Assistant • Online</div>
+                    <div style="font-size: 12px; opacity: 0.9;">Facility Assistant • Online</div>
                 </div>
                 <div style="display: flex; gap: 8px;">
                     <div onclick="toggleChat()" style="width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px;">×</div>
@@ -80,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['get_suggestions'])) {
             <div id="chatMessages" style="height: 340px; overflow-y: auto; padding: 20px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);">
                 <div style="text-align: center; margin-bottom: 20px;">
                     <div style="background: white; padding: 16px 20px; border-radius: 20px; display: inline-block; box-shadow: 0 4px 15px rgba(0,0,0,0.08); font-size: 14px; color: #64748b; line-height: 1.5; max-width: 80%;">
-                        🤖 Hi! I'm Ariana - your MCNP facility assistant. Ask me anything about bookings, registration, or facilities! 
+                        🤖 Hi! I'm Ariana - your MCNP-ISAP facility assistant. Ask me anything about bookings, registration, or facilities! 
                         <div style="margin-top: 8px; font-size: 12px; color: #94a3b8;">Nagsasalita ako ng English at Tagalog! 🇵🇭</div>
                     </div>
                 </div>

@@ -28,6 +28,9 @@ function sendVerificationEmail($toEmail, $toName, $verificationCode) {
         $mail->isHTML(true);
         $mail->Subject = 'Verify Your Email - MCNP-ISAP Service Portal';
         
+        // Create verification link with both email and code
+        $verification_link = SITE_URL . "/verify.php?email=" . urlencode($toEmail) . "&code=" . $verificationCode;
+        
         // Email body with nice styling
         $mail->Body = "
         <!DOCTYPE html>
@@ -42,6 +45,7 @@ function sendVerificationEmail($toEmail, $toName, $verificationCode) {
                 .code { font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #667eea; }
                 .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
                 .button { display: inline-block; padding: 12px 30px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+                .or-divider { text-align: center; margin: 20px 0; font-weight: bold; color: #666; }
             </style>
         </head>
         <body>
@@ -60,11 +64,14 @@ function sendVerificationEmail($toEmail, $toName, $verificationCode) {
                     </div>
                     
                     <p>Enter this code on the verification page to activate your account.</p>
-                    <p><strong>This code will expire in 10 minutes.</strong></p>
+                    
+                    <div class='or-divider'>OR</div>
                     
                     <p style='text-align: center;'>
-                        <a href='" . SITE_URL . "/verify.php?email=" . urlencode($toEmail) . "' class='button'>Verify Email Now</a>
+                        <a href='$verification_link' class='button'>Click here to verify automatically</a>
                     </p>
+                    
+                    <p><strong>This code will expire in 10 minutes.</strong></p>
                     
                     <p style='font-size: 12px; color: #666; margin-top: 30px;'>
                         If you didn't create an account, please ignore this email.
@@ -79,8 +86,8 @@ function sendVerificationEmail($toEmail, $toName, $verificationCode) {
         </html>
         ";
         
-        // Plain text version
-        $mail->AltBody = "Hello $toName,\n\nYour verification code is: $verificationCode\n\nThis code will expire in 10 minutes.\n\nThank you,\nMCNP-ISAP Service Portal";
+        // Plain text version with the link
+        $mail->AltBody = "Hello $toName,\n\nYour verification code is: $verificationCode\n\nOr click this link to verify automatically: $verification_link\n\nThis code will expire in 10 minutes.\n\nThank you,\nMCNP-ISAP Service Portal";
         
         $mail->send();
         return true;

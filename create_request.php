@@ -119,28 +119,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 // Available facilities
-$facilities_list = [
-    'HM Laboratory',
-    'Function Hall',
-    'Conference Hall',
-    'Hotel Room',
-    'TM Laboratory',
-    'Gymnasium',
-    'AVR 1',
-    'AVR 2',
-    'AVR 3',
-    'AMPHI 1',
-    'AMPHI 2',
-    'AMPHI 3',
-    'Quadrangle',
-    'Reading Area',
-    'Studio Room',
-    'Cabbo La Vista',
-    'Pamplona La Vista',
-    'ISAP-Tug Retreat House',
-    'Other'
-];
+// Available facilities (NEW - FROM DATABASE)
+$facilities_list = [];
+$sql = "SELECT name FROM facilities WHERE is_active = TRUE ORDER BY name";
+$result = $conn->query($sql);
+if ($result->num_rows > 0) {
+    while ($row = $result->fetch_assoc()) {
+        $facilities_list[] = $row['name'];
+    }
+}
 
+// Add "Other" option at the end
+$facilities_list[] = 'Other';
 $logo_file = $GLOBALS['logo_file'];
 $portal_name = $GLOBALS['portal_name'];
 ?>
