@@ -15,6 +15,19 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
+// Get theme directly from database as fallback
+$theme = 'light';
+$user_id = $_SESSION['user_id'];
+$sql = "SELECT theme FROM user_preferences WHERE user_id = ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+if ($result->num_rows > 0) {
+    $prefs = $result->fetch_assoc();
+    $theme = $prefs['theme'];
+}
+
 $user_id = $_SESSION['user_id'];
 $user_name = $_SESSION['user_name'];
 
@@ -127,7 +140,9 @@ $facilities_list = [
     'ISAP-Tug Retreat House',
     'Other'
 ];
-$theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
+
+$logo_file = $GLOBALS['logo_file'];
+$portal_name = $GLOBALS['portal_name'];
 ?>
 <!DOCTYPE html>
 <html lang="en" data-theme="<?php echo htmlspecialchars($theme); ?>">
@@ -142,18 +157,117 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             box-sizing: border-box;
         }
         
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f7fa;
+            --bg-tertiary: #f9fafb;
+            --text-primary: #1a1a1a;
+            --text-secondary: #6b7280;
+            --border-color: #e5e7eb;
+            --card-bg: #ffffff;
+            --navbar-bg: #ffffff;
+            --info-item-bg: #f9fafb;
+            --input-bg: #ffffff;
+            --input-border: #d1d5db;
+            --input-text: #1a1a1a;
+            --btn-bg: #ffffff;
+            --btn-text: #1a1a1a;
+            --btn-border: #e5e7eb;
+            --btn-hover: #f9fafb;
+            --btn-primary-bg: #1a1a1a;
+            --btn-primary-text: #ffffff;
+            --btn-primary-hover: #000000;
+            --btn-success-bg: #10b981;
+            --btn-success-text: #ffffff;
+            --btn-success-hover: #059669;
+            --btn-danger-bg: #ef4444;
+            --btn-danger-text: #ffffff;
+            --btn-danger-hover: #dc2626;
+            --step-bg: #ffffff;
+            --step-border: #e5e7eb;
+            --step-active-bg: #1a1a1a;
+            --step-active-text: #ffffff;
+            --step-completed-bg: #10b981;
+            --step-completed-text: #ffffff;
+            --facility-card-bg: #ffffff;
+            --facility-card-border: #e5e7eb;
+            --facility-card-hover: #f9fafb;
+            --facility-card-selected-bg: #f9fafb;
+            --facility-card-selected-border: #1a1a1a;
+            --alert-danger-bg: #fee2e2;
+            --alert-danger-text: #991b1b;
+            --alert-danger-border: #fecaca;
+            --alert-success-bg: #d1fae5;
+            --alert-success-text: #065f46;
+            --alert-success-border: #a7f3d0;
+            --alert-warning-bg: #fffbe6;
+            --alert-warning-text: #78350f;
+            --alert-warning-border: #fde68a;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --bg-tertiary: #404040;
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --border-color: #404040;
+            --card-bg: #2d2d2d;
+            --navbar-bg: #2d2d2d;
+            --info-item-bg: #404040;
+            --input-bg: #404040;
+            --input-border: #4b5563;
+            --input-text: #ffffff;
+            --btn-bg: #404040;
+            --btn-text: #ffffff;
+            --btn-border: #4b5563;
+            --btn-hover: #4b5563;
+            --btn-primary-bg: #ffffff;
+            --btn-primary-text: #1a1a1a;
+            --btn-primary-hover: #e5e7eb;
+            --btn-success-bg: #059669;
+            --btn-success-text: #ffffff;
+            --btn-success-hover: #047857;
+            --btn-danger-bg: #dc2626;
+            --btn-danger-text: #ffffff;
+            --btn-danger-hover: #b91c1c;
+            --step-bg: #404040;
+            --step-border: #4b5563;
+            --step-active-bg: #ffffff;
+            --step-active-text: #1a1a1a;
+            --step-completed-bg: #059669;
+            --step-completed-text: #ffffff;
+            --facility-card-bg: #404040;
+            --facility-card-border: #4b5563;
+            --facility-card-hover: #4b5563;
+            --facility-card-selected-bg: #4b5563;
+            --facility-card-selected-border: #ffffff;
+            --alert-danger-bg: #7f1d1d;
+            --alert-danger-text: #fecaca;
+            --alert-danger-border: #991b1b;
+            --alert-success-bg: #064e3b;
+            --alert-success-text: #a7f3d0;
+            --alert-success-border: #065f46;
+            --alert-warning-bg: #78350f;
+            --alert-warning-text: #fef3c7;
+            --alert-warning-border: #92400e;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f7fa;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            overflow-x: hidden;
         }
         
         .navbar {
-            background: white;
+            background: var(--navbar-bg);
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             padding: 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            border-bottom: 1px solid var(--border-color);
         }
         
         .navbar-brand {
@@ -171,21 +285,23 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         .navbar-brand h1 {
             font-size: 18px;
             font-weight: 700;
+            color: var(--text-primary);
         }
         
         .btn-back {
             padding: 8px 16px;
-            background: white;
-            color: #1a1a1a;
-            border: 1px solid #e5e7eb;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--btn-border);
             border-radius: 6px;
             text-decoration: none;
             font-weight: 500;
             font-size: 14px;
+            transition: all 0.2s;
         }
         
         .btn-back:hover {
-            background: #e5e7eb;
+            background: var(--btn-hover);
         }
         
         .container {
@@ -195,27 +311,28 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         }
         
         .form-card {
-            background: white;
+            background: var(--card-bg);
             border-radius: 12px;
             padding: 24px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
         }
         
         .form-header {
             text-align: center;
             margin-bottom: 24px;
             padding-bottom: 20px;
-            border-bottom: 2px solid #e5e7eb;
+            border-bottom: 2px solid var(--border-color);
         }
         
         .form-header h2 {
             font-size: 24px;
-            color: #1a1a1a;
+            color: var(--text-primary);
             margin-bottom: 8px;
         }
         
         .form-header p {
-            color: #6b7280;
+            color: var(--text-secondary);
             font-size: 14px;
         }
         
@@ -234,7 +351,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             left: 0;
             right: 0;
             height: 2px;
-            background: #e5e7eb;
+            background: var(--border-color);
             z-index: 1;
         }
         
@@ -250,36 +367,37 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            background: white;
-            border: 2px solid #e5e7eb;
+            background: var(--step-bg);
+            border: 2px solid var(--step-border);
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 600;
             margin-bottom: 8px;
+            color: var(--text-primary);
         }
         
         .step.active .step-circle {
-            background: #1a1a1a;
-            border-color: #1a1a1a;
-            color: white;
+            background: var(--step-active-bg);
+            border-color: var(--step-active-bg);
+            color: var(--step-active-text);
         }
         
         .step.completed .step-circle {
-            background: #10b981;
-            border-color: #10b981;
-            color: white;
+            background: var(--step-completed-bg);
+            border-color: var(--step-completed-bg);
+            color: var(--step-completed-text);
         }
         
         .step-label {
             font-size: 12px;
             font-weight: 500;
-            color: #6b7280;
+            color: var(--text-secondary);
             text-align: center;
         }
         
         .step.active .step-label {
-            color: #1a1a1a;
+            color: var(--text-primary);
         }
         
         .form-section {
@@ -293,16 +411,16 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         
         .form-section h3 {
             font-size: 18px;
-            color: #1a1a1a;
+            color: var(--text-primary);
             margin-bottom: 16px;
             padding-bottom: 12px;
-            border-bottom: 1px solid #e5e7eb;
+            border-bottom: 1px solid var(--border-color);
         }
         
         /* Add space between instruction text and facility cards */
         .form-section p {
             margin-bottom: 24px;
-            color: #6b7280;
+            color: var(--text-secondary);
             font-size: 14px;
         }
         
@@ -321,7 +439,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             display: block;
             font-size: 14px;
             font-weight: 600;
-            color: #374151;
+            color: var(--text-primary);
             margin-bottom: 8px;
         }
         
@@ -336,7 +454,9 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             width: 100%;
             padding: 12px 16px;
             font-size: 15px;
-            border: 1px solid #d1d5db;
+            background: var(--input-bg);
+            color: var(--input-text);
+            border: 1px solid var(--input-border);
             border-radius: 8px;
             font-family: inherit;
         }
@@ -345,7 +465,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         select:focus,
         textarea:focus {
             outline: none;
-            border-color: #1a1a1a;
+            border-color: var(--text-primary);
             box-shadow: 0 0 0 3px rgba(0,0,0,0.05);
         }
         
@@ -360,7 +480,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         }
         
         .facility-card {
-            border: 2px solid #e5e7eb;
+            border: 2px solid var(--facility-card-border);
             border-radius: 8px;
             padding: 12px 8px;
             text-align: center;
@@ -370,15 +490,17 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             display: flex;
             align-items: center;
             justify-content: center;
+            background: var(--facility-card-bg);
         }
         
         .facility-card:hover {
-            border-color: #1a1a1a;
+            border-color: var(--text-primary);
+            background: var(--facility-card-hover);
         }
         
         .facility-card.selected {
-            border-color: #1a1a1a;
-            background-color: #f9fafb;
+            border-color: var(--facility-card-selected-border);
+            background-color: var(--facility-card-selected-bg);
         }
         
         .facility-card h4 {
@@ -386,11 +508,12 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             margin-bottom: 0;
             font-weight: 600;
             line-height: 1.3;
+            color: var(--text-primary);
         }
         
         .facility-details {
-            background: #f9fafb;
-            border: 1px solid #e5e7eb;
+            background: var(--info-item-bg);
+            border: 1px solid var(--border-color);
             border-radius: 8px;
             padding: 16px;
             margin-bottom: 16px;
@@ -405,36 +528,38 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         
         .facility-details-header h4 {
             font-size: 15px;
-            color: #1a1a1a;
+            color: var(--text-primary);
         }
         
         .btn-remove {
             padding: 6px 12px;
-            background: #ef4444;
-            color: white;
+            background: var(--btn-danger-bg);
+            color: var(--btn-danger-text);
             border: none;
             border-radius: 6px;
             cursor: pointer;
             font-size: 13px;
+            transition: all 0.2s;
         }
         
         .btn-remove:hover {
-            background: #dc2626;
+            background: var(--btn-danger-hover);
         }
         
         .btn-add {
             padding: 10px 20px;
-            background: #10b981;
-            color: white;
+            background: var(--btn-success-bg);
+            color: var(--btn-success-text);
             border: none;
             border-radius: 6px;
             cursor: pointer;
             font-weight: 500;
             margin-bottom: 16px;
+            transition: all 0.2s;
         }
         
         .btn-add:hover {
-            background: #059669;
+            background: var(--btn-success-hover);
         }
         
         .form-navigation {
@@ -445,43 +570,47 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         
         .btn-prev, .btn-next {
             padding: 12px 20px;
-            background: #f3f4f6;
-            color: #1a1a1a;
+            background: var(--btn-bg);
+            color: var(--btn-text);
             border: none;
             border-radius: 8px;
             font-weight: 500;
             cursor: pointer;
             min-height: 44px;
+            border: 1px solid var(--btn-border);
+            transition: all 0.2s;
         }
         
         .btn-next {
-            background: #1a1a1a;
-            color: white;
+            background: var(--btn-primary-bg);
+            color: var(--btn-primary-text);
+            border: 1px solid var(--btn-primary-bg);
         }
         
         .btn-next:hover {
-            background: #000;
+            background: var(--btn-primary-hover);
         }
         
         .btn-prev:hover {
-            background: #e5e7eb;
+            background: var(--btn-hover);
         }
         
         .btn-submit {
             width: 100%;
             padding: 16px;
-            background: #1a1a1a;
-            color: white;
+            background: var(--btn-primary-bg);
+            color: var(--btn-primary-text);
             border: none;
             border-radius: 8px;
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
             min-height: 44px;
+            transition: all 0.2s;
         }
         
         .btn-submit:hover {
-            background: #000;
+            background: var(--btn-primary-hover);
         }
         
         .alert {
@@ -491,15 +620,21 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         }
         
         .alert-danger {
-            background: #fee2e2;
-            color: #991b1b;
-            border: 1px solid #fecaca;
+            background: var(--alert-danger-bg);
+            color: var(--alert-danger-text);
+            border: 1px solid var(--alert-danger-border);
         }
         
         .alert-success {
-            background: #d1fae5;
-            color: #065f46;
-            border: 1px solid #a7f3d0;
+            background: var(--alert-success-bg);
+            color: var(--alert-success-text);
+            border: 1px solid var(--alert-success-border);
+        }
+
+        .alert-warning {
+            background: var(--alert-warning-bg);
+            color: var(--alert-warning-text);
+            border: 1px solid var(--alert-warning-border);
         }
         
         .success-actions {
@@ -511,8 +646,8 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         
         .btn-print, .btn-download {
             padding: 12px 20px;
-            background: #1a1a1a;
-            color: white;
+            background: var(--btn-primary-bg);
+            color: var(--btn-primary-text);
             border: none;
             border-radius: 8px;
             font-weight: 500;
@@ -521,10 +656,11 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             display: inline-block;
             text-align: center;
             min-height: 44px;
+            transition: all 0.2s;
         }
         
         .btn-print:hover, .btn-download:hover {
-            background: #000;
+            background: var(--btn-primary-hover);
         }
         
         /* Make the time input more prominent */
@@ -533,9 +669,9 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         }
         
         .detail-hours {
-            background-color: #f3f4f6;
+            background-color: var(--info-item-bg);
             font-weight: 600;
-            color: #1a1a1a;
+            color: var(--text-primary);
         }
         
         @media print {
@@ -557,15 +693,6 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             }
         }
         
-        [data-theme="dark"] {
-            --bg-primary: #1a1a1a;
-            --bg-secondary: #2d2d2d;
-            --text-primary: #ffffff;
-            --text-secondary: #9ca3af;
-            --border-color: #404040;
-            --accent-color: #818cf8;
-        }
-
         /* Mobile Responsive Styles */
         @media (min-width: 768px) {
             .navbar {
@@ -647,11 +774,6 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             align-items: center;
             justify-content: center;
         }
-        
-        /* Prevent horizontal scrolling */
-        body {
-            overflow-x: hidden;
-        }
     </style>
 </head>
 <body>
@@ -685,7 +807,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
                     </div>
                 </div>
 
-                <div class="alert no-print" style="background: #fffbe6; color: #78350f; border: 1px solid #fde68a; margin-top: 20px;">
+                <div class="alert alert-warning no-print" style="margin-top: 20px;">
                     <h4 style="margin-bottom: 8px; font-weight: 700;">Important Next Steps and Reminders</h4>
                     <ul style="list-style: disc; margin-left: 20px;">
                         <li>**After Printing/Downloading:** Proceed to the **General Services Office (GSO)** for the Property Custodian's final approval and signature.</li>
@@ -872,7 +994,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
                         valid = false;
                         field.style.borderColor = '#ef4444';
                     } else {
-                        field.style.borderColor = '#d1d5db';
+                        field.style.borderColor = '';
                     }
                 });
                 
@@ -931,7 +1053,6 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
                     }
                 });
             });
-            
             // Set minimum date to today
             const today = new Date().toISOString().split('T')[0];
             document.querySelectorAll('input[type="date"]').forEach(input => {

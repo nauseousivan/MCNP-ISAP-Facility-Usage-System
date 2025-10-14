@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'config.php';
+require_once 'theme_loader.php';
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: index.php");
@@ -11,6 +12,19 @@ $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
+}
+
+// Get theme directly from database as fallback
+$theme = 'light';
+$user_id = $_SESSION['user_id'];
+$sql = "SELECT theme FROM user_preferences WHERE user_id = ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+if ($result->num_rows > 0) {
+    $prefs = $result->fetch_assoc();
+    $theme = $prefs['theme'];
 }
 
 $request_id = $_GET['id'] ?? 0;
@@ -34,9 +48,12 @@ $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $request_id);
 $stmt->execute();
 $facilities = $stmt->get_result();
+
+$logo_file = $GLOBALS['logo_file'];
+$portal_name = $GLOBALS['portal_name'];
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="<?php echo htmlspecialchars($theme); ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -48,14 +65,71 @@ $facilities = $stmt->get_result();
             box-sizing: border-box;
         }
         
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f7fa;
+            --bg-tertiary: #f9fafb;
+            --text-primary: #1a1a1a;
+            --text-secondary: #6b7280;
+            --border-color: #e5e7eb;
+            --card-bg: #ffffff;
+            --navbar-bg: #ffffff;
+            --info-item-bg: #f9fafb;
+            --table-header-bg: #f9fafb;
+            --table-border: #e5e7eb;
+            --btn-bg: #ffffff;
+            --btn-text: #1a1a1a;
+            --btn-border: #e5e7eb;
+            --btn-hover: #f9fafb;
+            --status-pending-bg: #fef3c7;
+            --status-pending-text: #92400e;
+            --status-approved-bg: #d1fae5;
+            --status-approved-text: #065f46;
+            --status-rejected-bg: #fee2e2;
+            --status-rejected-text: #991b1b;
+            --admin-notes-bg: #fef3c7;
+            --admin-notes-border: #f59e0b;
+            --admin-notes-title: #92400e;
+            --admin-notes-text: #78350f;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --bg-tertiary: #404040;
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --border-color: #404040;
+            --card-bg: #2d2d2d;
+            --navbar-bg: #2d2d2d;
+            --info-item-bg: #404040;
+            --table-header-bg: #404040;
+            --table-border: #4b5563;
+            --btn-bg: #404040;
+            --btn-text: #ffffff;
+            --btn-border: #4b5563;
+            --btn-hover: #4b5563;
+            --status-pending-bg: #78350f;
+            --status-pending-text: #fef3c7;
+            --status-approved-bg: #065f46;
+            --status-approved-text: #d1fae5;
+            --status-rejected-bg: #991b1b;
+            --status-rejected-text: #fee2e2;
+            --admin-notes-bg: #78350f;
+            --admin-notes-border: #f59e0b;
+            --admin-notes-title: #fef3c7;
+            --admin-notes-text: #fef3c7;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f7fa;
+            background: var(--bg-secondary);
             line-height: 1.6;
+            color: var(--text-primary);
         }
         
         .navbar {
-            background: white;
+            background: var(--navbar-bg);
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             padding: 16px 20px;
             display: flex;
@@ -64,6 +138,7 @@ $facilities = $stmt->get_result();
             position: sticky;
             top: 0;
             z-index: 100;
+            border-bottom: 1px solid var(--border-color);
         }
         
         .navbar-brand {
@@ -81,18 +156,24 @@ $facilities = $stmt->get_result();
         .navbar-brand h1 {
             font-size: 18px;
             font-weight: 700;
+            color: var(--text-primary);
         }
         
         .btn-back {
             padding: 8px 16px;
-            background: white;
-            color: #1a1a1a;
-            border: 1px solid #e5e7eb;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--btn-border);
             border-radius: 6px;
             text-decoration: none;
             font-weight: 500;
             font-size: 14px;
             white-space: nowrap;
+            transition: all 0.2s;
+        }
+        
+        .btn-back:hover {
+            background: var(--btn-hover);
         }
         
         .container {
@@ -102,10 +183,11 @@ $facilities = $stmt->get_result();
         }
         
         .request-card {
-            background: white;
+            background: var(--card-bg);
             border-radius: 12px;
             padding: 24px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
         }
         
         @media (min-width: 768px) {
@@ -120,7 +202,7 @@ $facilities = $stmt->get_result();
             gap: 16px;
             margin-bottom: 24px;
             padding-bottom: 20px;
-            border-bottom: 2px solid #e5e7eb;
+            border-bottom: 2px solid var(--border-color);
         }
         
         @media (min-width: 640px) {
@@ -133,7 +215,7 @@ $facilities = $stmt->get_result();
         
         .request-header h2 {
             font-size: 22px;
-            color: #1a1a1a;
+            color: var(--text-primary);
             margin-bottom: 8px;
         }
         
@@ -145,7 +227,7 @@ $facilities = $stmt->get_result();
         
         .control-number {
             font-size: 14px;
-            color: #6b7280;
+            color: var(--text-secondary);
         }
         
         .status-badge {
@@ -158,18 +240,18 @@ $facilities = $stmt->get_result();
         }
         
         .status-badge.pending {
-            background: #fef3c7;
-            color: #92400e;
+            background: var(--status-pending-bg);
+            color: var(--status-pending-text);
         }
         
         .status-badge.approved {
-            background: #d1fae5;
-            color: #065f46;
+            background: var(--status-approved-bg);
+            color: var(--status-approved-text);
         }
         
         .status-badge.rejected {
-            background: #fee2e2;
-            color: #991b1b;
+            background: var(--status-rejected-bg);
+            color: var(--status-rejected-text);
         }
         
         .info-section {
@@ -178,10 +260,10 @@ $facilities = $stmt->get_result();
         
         .info-section h3 {
             font-size: 18px;
-            color: #1a1a1a;
+            color: var(--text-primary);
             margin-bottom: 16px;
             padding-bottom: 8px;
-            border-bottom: 1px solid #e5e7eb;
+            border-bottom: 1px solid var(--border-color);
         }
         
         .info-grid {
@@ -204,13 +286,14 @@ $facilities = $stmt->get_result();
         
         .info-item {
             padding: 16px;
-            background: #f9fafb;
+            background: var(--info-item-bg);
             border-radius: 8px;
+            border: 1px solid var(--border-color);
         }
         
         .info-label {
             font-size: 12px;
-            color: #6b7280;
+            color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-bottom: 4px;
@@ -218,7 +301,7 @@ $facilities = $stmt->get_result();
         
         .info-value {
             font-size: 16px;
-            color: #1a1a1a;
+            color: var(--text-primary);
             font-weight: 500;
             word-break: break-word;
         }
@@ -237,16 +320,17 @@ $facilities = $stmt->get_result();
         .facilities-table th {
             text-align: left;
             padding: 12px;
-            background: #f9fafb;
-            border-bottom: 2px solid #e5e7eb;
+            background: var(--table-header-bg);
+            border-bottom: 2px solid var(--table-border);
             font-size: 14px;
-            color: #6b7280;
+            color: var(--text-secondary);
             font-weight: 600;
         }
         
         .facilities-table td {
             padding: 16px 12px;
-            border-bottom: 1px solid #e5e7eb;
+            border-bottom: 1px solid var(--table-border);
+            color: var(--text-primary);
         }
         
         .facilities-table tr:last-child td {
@@ -269,8 +353,8 @@ $facilities = $stmt->get_result();
         }
         
         .admin-notes {
-            background: #fef3c7;
-            border-left: 4px solid #f59e0b;
+            background: var(--admin-notes-bg);
+            border-left: 4px solid var(--admin-notes-border);
             padding: 16px;
             border-radius: 8px;
             margin-top: 24px;
@@ -278,12 +362,12 @@ $facilities = $stmt->get_result();
         
         .admin-notes h4 {
             font-size: 14px;
-            color: #92400e;
+            color: var(--admin-notes-title);
             margin-bottom: 8px;
         }
         
         .admin-notes p {
-            color: #78350f;
+            color: var(--admin-notes-text);
             line-height: 1.5;
         }
         
@@ -339,14 +423,15 @@ $facilities = $stmt->get_result();
 </head>
 <body>
     <nav class="navbar">
-    <a href="dashboard.php" style="text-decoration: none; color: inherit;">
-        <div class="navbar-brand">
-            <img src="combined-logo.png" alt="Logo">
-            <h1>MCNP-ISAP Facility Portal</h1>
-        </div>
-    </a>
-    <a href="dashboard.php" class="btn-back">Back</a>
-</nav>
+        <a href="dashboard.php" style="text-decoration: none; color: inherit;">
+            <div class="navbar-brand">
+                <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
+                <h1><?php echo htmlspecialchars($portal_name); ?></h1>
+            </div>
+        </a>
+        <a href="dashboard.php" class="btn-back">Back</a>
+    </nav>
+    
     <div class="container">
         <div class="request-card">
             <div class="request-header">

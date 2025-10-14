@@ -10,10 +10,22 @@ if (!isset($_SESSION['user_id'])) {
 
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
-// Initialize variables to prevent undefined errors
-$logo_file = isset($logo_file) ? $logo_file : 'img/default-logo.png';
-$portal_name = isset($portal_name) ? $portal_name : 'MCNP Service Portal';
+// Get theme directly from database as fallback
+$theme = 'light';
+$user_id = $_SESSION['user_id'];
+$sql = "SELECT theme FROM user_preferences WHERE user_id = ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+if ($result->num_rows > 0) {
+    $prefs = $result->fetch_assoc();
+    $theme = $prefs['theme'];
+}
 
+// Use the theme
+$logo_file = $GLOBALS['logo_file'];
+$portal_name = $GLOBALS['portal_name'];
 // Facilities list with descriptions
 $facilities = [
     [
@@ -104,7 +116,7 @@ $facilities = [
 
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="<?php echo htmlspecialchars($theme); ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -120,7 +132,70 @@ $facilities = [
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #f8f9fa;
         }
-        
+                :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8f9fa;
+            --text-primary: #1a1a1a;
+            --text-secondary: #6b7280;
+            --border-color: #e5e7eb;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --border-color: #404040;
+        }
+
+        [data-theme="dark"] body {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        [data-theme="dark"] .header {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        [data-theme="dark"] .header-brand .brand-title {
+            color: var(--text-primary);
+        }
+
+        [data-theme="dark"] .header-brand .brand-subtitle {
+            color: var(--text-secondary);
+        }
+
+        [data-theme="dark"] .btn-back {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border-color: var(--border-color);
+        }
+
+        [data-theme="dark"] .container {
+            background: var(--bg-secondary);
+        }
+
+        [data-theme="dark"] .page-header h1 {
+            color: var(--text-primary);
+        }
+
+        [data-theme="dark"] .page-header p {
+            color: var(--text-secondary);
+        }
+
+        [data-theme="dark"] .facility-card {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        [data-theme="dark"] .facility-content h3 {
+            color: var(--text-primary);
+        }
+
+        [data-theme="dark"] .facility-description {
+            color: var(--text-secondary);
+        }
         .header {
             background: white;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);

@@ -668,6 +668,5 @@ $profile_picture = !empty($user['profile_picture']) ? $user['profile_picture'] :
             document.documentElement.setAttribute('data-theme', theme);
         }
     </script>
-    <?php include 'chat_bot.php'; ?>
 </body>
 </html>

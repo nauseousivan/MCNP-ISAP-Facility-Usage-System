@@ -561,6 +561,7 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             padding: 16px;
             border-radius: 8px;
             transition: background 0.2s;
+            cursor: pointer;
         }
         
         .activity-item:hover {
@@ -749,35 +750,32 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
     }
 }
 
-@media (max-width: 768px) {
-            /* Stats Grid - 2x2 layout */
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr) !important;
-                gap: 12px !important;
-            }
-            
-            .stat-card {
-                padding: 16px !important;
-            }
-            
-            .stat-icon {
-                width: 36px !important;
-                height: 36px !important;
-                margin-bottom: 12px !important;
-            }
-            
-            .stat-icon svg {
-                width: 18px !important;
-                height: 18px !important;
-            }
-            
-            .stat-value {
-                font-size: 24px !important;
-            }
-            
-            .stat-label {
-                font-size: 12px !important;
-            }
+@media (max-width: 480px) {
+    .content {
+        padding: 12px;
+    }
+    
+    .top-nav {
+        padding: 0 12px;
+    }
+    
+    .card {
+        padding: 16px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .table {
+        font-size: 13px;
+    }
+    
+    .table thead th,
+    .table tbody td {
+        padding: 10px 6px;
+    }
 }
     </style>
 </head>
@@ -788,43 +786,47 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
     <!-- Main Content -->
     <div class="main-content">
         <!-- Top Nav -->
-<nav class="top-nav">
-    <div style="display: flex; align-items: center; gap: 16px;">
-        <button class="mobile-menu-btn" onclick="toggleSidebar()">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-            </svg>
-        </button>
-        <h1>Dashboard</h1>
-    </div>
-    <div class="top-nav-actions">
-        <!-- Your existing notification and theme buttons stay here -->
-        <div style="position: relative;">
-            <button class="notification-btn" onclick="toggleNotifications()">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
-                </svg>
-                <?php if ($recent_activities_display->num_rows > 0): ?>
-                    <span class="notification-badge"></span>
-                <?php endif; ?>
-            </button>
+        <nav class="top-nav">
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <button class="mobile-menu-btn" onclick="toggleSidebar()">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+                <h1>Dashboard</h1>
+            </div>
+            <div class="top-nav-actions">
+                <div style="position: relative;">
+                    <button class="notification-btn" onclick="toggleNotifications()">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                        </svg>
+                        <?php if ($recent_activities_display->num_rows > 0): ?>
+                            <span class="notification-badge"></span>
+                        <?php endif; ?>
+                    </button>
                     
                     <div class="notification-dropdown" id="notificationDropdown">
                         <div class="notification-header">Recent Activities</div>
                         <div class="notification-list">
                             <?php if ($recent_activities_display->num_rows > 0): ?>
                                 <?php while ($activity = $recent_activities_display->fetch_assoc()): ?>
-                                    <div class="notification-item">
+                                    <div class="notification-item" onclick="handleNotificationClick('<?php echo $activity['type']; ?>', <?php echo $activity['id']; ?>)">
                                         <div class="notification-message"><?php echo htmlspecialchars($activity['message']); ?></div>
                                         <div class="notification-time">
                                             <?php 
                                             $time_diff = time() - strtotime($activity['timestamp']);
-                                            if ($time_diff < 3600) {
-                                                echo floor($time_diff / 60) . ' minutes ago';
+                                            if ($time_diff < 60) {
+                                                echo 'Just now';
+                                            } elseif ($time_diff < 3600) {
+                                                $minutes = floor($time_diff / 60);
+                                                echo $minutes . ' minute' . ($minutes > 1 ? 's' : '') . ' ago';
                                             } elseif ($time_diff < 86400) {
-                                                echo floor($time_diff / 3600) . ' hours ago';
+                                                $hours = floor($time_diff / 3600);
+                                                echo $hours . ' hour' . ($hours > 1 ? 's' : '') . ' ago';
                                             } else {
-                                                echo floor($time_diff / 86400) . ' days ago';
+                                                $days = floor($time_diff / 86400);
+                                                echo $days . ' day' . ($days > 1 ? 's' : '') . ' ago';
                                             }
                                             ?>
                                         </div>
@@ -837,16 +839,17 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
                     </div>
                 </div>
                 
-                 <button class="theme-toggle" onclick="toggleTheme()">
-            <svg class="sun-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: none;">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
-            </svg>
-            <svg class="moon-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
-            </svg>
-        </button>
-    </div>
-</nav>
+                <button class="theme-toggle" onclick="toggleTheme()">
+                    <svg class="sun-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: none;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+                    </svg>
+                    <svg class="moon-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+                    </svg>
+                </button>
+            </div>
+        </nav>
+
         <!-- Content -->
         <main class="content">
             <!-- Stats Grid -->
@@ -939,7 +942,7 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
                         $recent_activities_display->data_seek(0);
                         if ($recent_activities_display->num_rows > 0): ?>
                             <?php while ($activity = $recent_activities_display->fetch_assoc()): ?>
-                                <div class="activity-item">
+                                <div class="activity-item" onclick="handleNotificationClick('<?php echo $activity['type']; ?>', <?php echo $activity['id']; ?>)">
                                     <div class="activity-icon <?php echo $activity['activity_type']; ?>">
                                         <?php if ($activity['type'] == 'user_registered'): ?>
                                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -960,12 +963,17 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
                                         <div class="activity-time">
                                             <?php 
                                             $time_diff = time() - strtotime($activity['timestamp']);
-                                            if ($time_diff < 3600) {
-                                                echo floor($time_diff / 60) . ' minutes ago';
+                                            if ($time_diff < 60) {
+                                                echo 'Just now';
+                                            } elseif ($time_diff < 3600) {
+                                                $minutes = floor($time_diff / 60);
+                                                echo $minutes . ' minute' . ($minutes > 1 ? 's' : '') . ' ago';
                                             } elseif ($time_diff < 86400) {
-                                                echo floor($time_diff / 3600) . ' hours ago';
+                                                $hours = floor($time_diff / 3600);
+                                                echo $hours . ' hour' . ($hours > 1 ? 's' : '') . ' ago';
                                             } else {
-                                                echo floor($time_diff / 86400) . ' days ago';
+                                                $days = floor($time_diff / 86400);
+                                                echo $days . ' day' . ($days > 1 ? 's' : '') . ' ago';
                                             }
                                             ?>
                                         </div>
@@ -1053,6 +1061,29 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
                 sidebar.classList.remove('mobile-open');
             }
         });
+        
+        // Handle notification clicks
+        function handleNotificationClick(type, id) {
+            // Close notification dropdown if open
+            const dropdown = document.getElementById('notificationDropdown');
+            dropdown.classList.remove('show');
+            
+            // Redirect based on notification type
+            switch(type) {
+                case 'request_submitted':
+                case 'request_approved':
+                case 'request_rejected':
+                    // Redirect to view request page
+                    window.location.href = `view_request_admin.php?id=${id}`;
+                    break;
+                case 'user_registered':
+                    // Redirect to users page
+                    window.location.href = 'users.php';
+                    break;
+                default:
+                    console.log('Unknown notification type:', type);
+            }
+        }
     </script>
 </body>
 </html>

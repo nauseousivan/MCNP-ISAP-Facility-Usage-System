@@ -12,6 +12,18 @@ if (!isset($_SESSION['user_id'])) {
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 $user_id = $_SESSION['user_id'];
 
+// Get theme directly from database as fallback
+$theme = 'light';
+$sql = "SELECT theme FROM user_preferences WHERE user_id = ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+if ($result->num_rows > 0) {
+    $prefs = $result->fetch_assoc();
+    $theme = $prefs['theme'];
+}
+
 // Get user details
 $sql = "SELECT * FROM users WHERE id = ?";
 $stmt = $conn->prepare($sql);
@@ -122,7 +134,7 @@ $portal_name = $GLOBALS['portal_name'];
 $portal_subtitle = $GLOBALS['portal_subtitle'];
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="<?php echo htmlspecialchars($theme); ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -134,17 +146,65 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
             box-sizing: border-box;
         }
         
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8f9fa;
+            --text-primary: #1a1a1a;
+            --text-secondary: #6b7280;
+            --border-color: #e5e7eb;
+            --card-bg: #ffffff;
+            --input-bg: #ffffff;
+            --input-border: #d1d5db;
+            --input-text: #1a1a1a;
+            --btn-bg: #1a1a1a;
+            --btn-text: #ffffff;
+            --btn-hover: #000000;
+            --alert-success-bg: #d1fae5;
+            --alert-success-text: #065f46;
+            --alert-success-border: #a7f3d0;
+            --alert-danger-bg: #fee2e2;
+            --alert-danger-text: #991b1b;
+            --alert-danger-border: #fecaca;
+            --stat-bg: #f3f4f6;
+            --stat-text: #6b7280;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --border-color: #404040;
+            --card-bg: #2d2d2d;
+            --input-bg: #404040;
+            --input-border: #4b5563;
+            --input-text: #ffffff;
+            --btn-bg: #ffffff;
+            --btn-text: #1a1a1a;
+            --btn-hover: #e5e7eb;
+            --alert-success-bg: #064e3b;
+            --alert-success-text: #a7f3d0;
+            --alert-success-border: #065f46;
+            --alert-danger-bg: #7f1d1d;
+            --alert-danger-text: #fecaca;
+            --alert-danger-border: #991b1b;
+            --stat-bg: #404040;
+            --stat-text: #d1d5db;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f8f9fa;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
         }
         
         .header {
-            background: white;
+            background: var(--bg-primary);
             padding: 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            border-bottom: 1px solid var(--border-color);
         }
         
         .header-brand {
@@ -166,27 +226,28 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
         .header-brand .brand-title {
             font-size: 16px;
             font-weight: 700;
-            color: #1a1a1a;
+            color: var(--text-primary);
         }
         
         .header-brand .brand-subtitle {
             font-size: 12px;
-            color: #6b7280;
+            color: var(--text-secondary);
         }
         
         .btn-back {
             padding: 8px 16px;
-            background: white;
-            color: #1a1a1a;
-            border: 1px solid #e5e7eb;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
             border-radius: 6px;
             text-decoration: none;
             font-weight: 500;
             font-size: 14px;
+            transition: all 0.2s;
         }
         
         .btn-back:hover {
-            background: #f9fafb;
+            background: var(--bg-secondary);
         }
         
         .container {
@@ -203,18 +264,20 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
         }
         
         .profile-sidebar {
-            background: white;
+            background: var(--card-bg);
             border-radius: 12px;
             padding: 32px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             text-align: center;
+            border: 1px solid var(--border-color);
         }
         
         .profile-card {
-            background: white;
+            background: var(--card-bg);
             border-radius: 12px;
             padding: 32px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
         }
         
         /* Enhanced profile avatar with image support */
@@ -237,7 +300,7 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
             font-size: 48px;
             font-weight: 700;
             overflow: hidden;
-            border: 4px solid #f3f4f6;
+            border: 4px solid var(--border-color);
         }
         
         .profile-avatar img {
@@ -252,25 +315,25 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
             right: 0;
             width: 36px;
             height: 36px;
-            background: #1a1a1a;
+            background: var(--btn-bg);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            border: 3px solid white;
+            border: 3px solid var(--card-bg);
             transition: all 0.2s;
         }
         
         .profile-avatar-upload:hover {
-            background: #000;
+            background: var(--btn-hover);
             transform: scale(1.1);
         }
         
         .profile-avatar-upload svg {
             width: 18px;
             height: 18px;
-            color: white;
+            color: var(--btn-text);
         }
         
         .profile-avatar-upload input {
@@ -279,12 +342,12 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
         
         .profile-header h2 {
             font-size: 24px;
-            color: #1a1a1a;
+            color: var(--text-primary);
             margin-bottom: 4px;
         }
         
         .profile-header p {
-            color: #6b7280;
+            color: var(--text-secondary);
             font-size: 14px;
             margin-bottom: 16px;
         }
@@ -296,7 +359,7 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
             gap: 12px;
             margin-top: 24px;
             padding-top: 24px;
-            border-top: 1px solid #e5e7eb;
+            border-top: 1px solid var(--border-color);
         }
         
         .stat-item {
@@ -306,19 +369,19 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
         .stat-item .number {
             font-size: 24px;
             font-weight: 700;
-            color: #1a1a1a;
+            color: var(--text-primary);
         }
         
         .stat-item .label {
             font-size: 12px;
-            color: #6b7280;
+            color: var(--stat-text);
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
         
         .section-title {
             font-size: 18px;
-            color: #1a1a1a;
+            color: var(--text-primary);
             margin-bottom: 20px;
             font-weight: 700;
         }
@@ -331,7 +394,7 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
             display: block;
             font-size: 14px;
             font-weight: 600;
-            color: #374151;
+            color: var(--text-primary);
             margin-bottom: 8px;
         }
         
@@ -343,7 +406,9 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
             width: 100%;
             padding: 12px 16px;
             font-size: 15px;
-            border: 1px solid #d1d5db;
+            background: var(--input-bg);
+            color: var(--input-text);
+            border: 1px solid var(--input-border);
             border-radius: 8px;
             font-family: inherit;
             transition: all 0.2s;
@@ -358,21 +423,21 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
         textarea:focus,
         select:focus {
             outline: none;
-            border-color: #1a1a1a;
+            border-color: var(--text-primary);
             box-shadow: 0 0 0 3px rgba(0,0,0,0.05);
         }
         
         input:disabled {
-            background: #f9fafb;
-            color: #6b7280;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
             cursor: not-allowed;
         }
         
         .btn-submit {
             width: 100%;
             padding: 14px;
-            background: #1a1a1a;
-            color: white;
+            background: var(--btn-bg);
+            color: var(--btn-text);
             border: none;
             border-radius: 8px;
             font-size: 16px;
@@ -382,7 +447,7 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
         }
         
         .btn-submit:hover {
-            background: #000;
+            background: var(--btn-hover);
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
@@ -406,15 +471,15 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
         }
         
         .alert-success {
-            background: #d1fae5;
-            color: #065f46;
-            border: 1px solid #a7f3d0;
+            background: var(--alert-success-bg);
+            color: var(--alert-success-text);
+            border: 1px solid var(--alert-success-border);
         }
         
         .alert-danger {
-            background: #fee2e2;
-            color: #991b1b;
-            border: 1px solid #fecaca;
+            background: var(--alert-danger-bg);
+            color: var(--alert-danger-text);
+            border: 1px solid var(--alert-danger-border);
         }
         
         /* Mobile Responsive Styles */

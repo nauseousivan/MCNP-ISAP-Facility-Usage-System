@@ -4,8 +4,10 @@
 <!-- Sidebar -->
 <aside class="sidebar">
     <div class="sidebar-brand">
-        <img src="../combined-logo.png" alt="Logo">
-        <span>Admin Panel</span>
+        <div class="logo-container">
+            <img src="../combined-logo.png" alt="Logo" class="circular-logo">
+        </div>
+        <span>Admin</span>
     </div>
     <ul class="sidebar-menu">
         <li>
@@ -61,6 +63,35 @@
 
 <!-- Mobile Overlay -->
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<style>
+.circular-logo {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+    /* Removed border and shadow */
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.admin-text {
+    font-weight: 600;
+    font-size: 18px;
+    color: #ffffff; /* Changed to white */
+}
+
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 15px;
+}
+</style>
 
 <script>
 // Mobile sidebar functionality

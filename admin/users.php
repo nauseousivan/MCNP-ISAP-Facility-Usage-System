@@ -84,6 +84,16 @@ if (!empty($params)) {
     $users = $conn->query($sql);
 }
 
+// Function to shorten department names
+function shortenDepartment($department) {
+    $shortNames = [
+        'Medical Colleges of Northern Philippines' => 'MCNP',
+        'International School of Asia and the Pacific' => 'ISAP'
+    ];
+    
+    return $shortNames[$department] ?? $department;
+}
+
 // Get theme preference from cookie
 $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
 ?>
@@ -117,6 +127,7 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             --success: #22c55e;
             --warning: #f59e0b;
             --danger: #ef4444;
+            --info: #3b82f6;
             --sidebar: #fafafa;
             --sidebar-foreground: #0a0a0a;
             --sidebar-border: #e5e5e5;
@@ -514,14 +525,14 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         .btn {
             padding: 8px 16px;
             border: none;
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: pointer;
             font-weight: 500;
             font-size: 13px;
             transition: all 0.2s;
             text-decoration: none;
             display: inline-block;
-            margin-right: 8px;
+            margin: 2px;
         }
         
         .btn-approve {
@@ -535,7 +546,7 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         }
 
         .btn-activate {
-            background: var(--success);
+            background: var(--info);
             color: white;
         }
 
@@ -547,6 +558,13 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         .btn:hover {
             opacity: 0.9;
             transform: translateY(-1px);
+        }
+
+        /* Action buttons container */
+        .action-buttons {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
         }
         
         /* Alert */
@@ -661,7 +679,10 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             .btn {
                 padding: 6px 12px;
                 font-size: 12px;
-                margin-right: 4px;
+            }
+
+            .action-buttons {
+                gap: 4px;
             }
         }
 
@@ -694,6 +715,17 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             .badge {
                 font-size: 10px;
                 padding: 3px 8px;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+                gap: 3px;
+            }
+
+            .btn {
+                padding: 5px 10px;
+                font-size: 11px;
+                margin: 1px;
             }
         }
     </style>
@@ -807,7 +839,7 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
                             <tr>
                                 <td><strong><?php echo htmlspecialchars($user['name']); ?></strong></td>
                                 <td><?php echo htmlspecialchars($user['email']); ?></td>
-                                <td><?php echo htmlspecialchars($user['department']); ?></td>
+                                <td><?php echo htmlspecialchars(shortenDepartment($user['department'])); ?></td>
                                 <td>
                                     <span class="badge <?php echo strtolower($user['user_type']); ?>">
                                         <?php echo $user['user_type']; ?>
@@ -827,31 +859,33 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
                                 </td>
                                 <td><?php echo date('M d, Y', strtotime($user['created_at'])); ?></td>
                                 <td>
-                                    <?php if ($user['verified'] == 1 && $user['approved'] == 0): ?>
-                                        <!-- Pending approval - show approve/reject buttons -->
-                                        <form method="POST" style="display: inline;">
-                                            <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
-                                            <button type="submit" name="action" value="approve" class="btn btn-approve">Approve</button>
-                                            <button type="submit" name="action" value="reject" class="btn btn-reject">Reject</button>
-                                        </form>
-                                    <?php elseif ($user['user_type'] !== 'Admin'): ?>
-                                        <!-- For non-admin users who are already approved or not verified -->
-                                        <?php if ($user['verified'] == 0): ?>
-                                            <!-- Not verified - show activate option -->
+                                    <div class="action-buttons">
+                                        <?php if ($user['verified'] == 1 && $user['approved'] == 0): ?>
+                                            <!-- Pending approval - show approve/reject buttons -->
                                             <form method="POST" style="display: inline;">
                                                 <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
-                                                <button type="submit" name="action" value="approve" class="btn btn-activate">Activate</button>
+                                                <button type="submit" name="action" value="approve" class="btn btn-approve">Approve</button>
+                                                <button type="submit" name="action" value="reject" class="btn btn-reject" onclick="return confirm('Are you sure you want to reject this user?')">Reject</button>
                                             </form>
+                                        <?php elseif ($user['user_type'] !== 'Admin'): ?>
+                                            <!-- For non-admin users who are already approved or not verified -->
+                                            <?php if ($user['verified'] == 0): ?>
+                                                <!-- Not verified - show activate option -->
+                                                <form method="POST" style="display: inline;">
+                                                    <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
+                                                    <button type="submit" name="action" value="approve" class="btn btn-activate">Activate</button>
+                                                </form>
+                                            <?php endif; ?>
+                                            <!-- Always show delete option for non-admin users -->
+                                            <form method="POST" style="display: inline;">
+                                                <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
+                                                <button type="submit" name="action" value="reject" class="btn btn-delete" onclick="return confirm('Are you sure you want to delete this user?')">Delete</button>
+                                            </form>
+                                        <?php else: ?>
+                                            <!-- Admin users - no actions -->
+                                            <span style="color: var(--muted-foreground);">-</span>
                                         <?php endif; ?>
-                                        <!-- Always show delete option for non-admin users -->
-                                        <form method="POST" style="display: inline;">
-                                            <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
-                                            <button type="submit" name="action" value="reject" class="btn btn-delete" onclick="return confirm('Are you sure you want to delete this user?')">Delete</button>
-                                        </form>
-                                    <?php else: ?>
-                                        <!-- Admin users - no actions -->
-                                        <span style="color: var(--muted-foreground);">-</span>
-                                    <?php endif; ?>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endwhile; ?>

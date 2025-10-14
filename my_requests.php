@@ -11,6 +11,18 @@ if (!isset($_SESSION['user_id'])) {
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 $user_id = $_SESSION['user_id'];
 
+// Get theme directly from database as fallback
+$theme = 'light';
+$sql = "SELECT theme FROM user_preferences WHERE user_id = ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+if ($result->num_rows > 0) {
+    $prefs = $result->fetch_assoc();
+    $theme = $prefs['theme'];
+}
+
 // Get filter
 $filter = $_GET['filter'] ?? 'all';
 $search = $_GET['search'] ?? '';
@@ -40,9 +52,12 @@ $stmt = $conn->prepare($sql);
 $stmt->bind_param($types, ...$params);
 $stmt->execute();
 $requests = $stmt->get_result();
+
+$logo_file = $GLOBALS['logo_file'];
+$portal_name = $GLOBALS['portal_name'];
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="<?php echo htmlspecialchars($theme); ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -54,19 +69,97 @@ $requests = $stmt->get_result();
             box-sizing: border-box;
         }
         
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f7fa;
+            --text-primary: #1a1a1a;
+            --text-secondary: #6b7280;
+            --border-color: #e5e7eb;
+            --card-bg: #ffffff;
+            --navbar-bg: #ffffff;
+            --input-bg: #ffffff;
+            --input-border: #d1d5db;
+            --input-text: #1a1a1a;
+            --btn-bg: #ffffff;
+            --btn-text: #1a1a1a;
+            --btn-border: #e5e7eb;
+            --btn-hover: #f9fafb;
+            --btn-primary-bg: #1a1a1a;
+            --btn-primary-text: #ffffff;
+            --btn-primary-hover: #000000;
+            --filter-btn-bg: #ffffff;
+            --filter-btn-text: #6b7280;
+            --filter-btn-border: #d1d5db;
+            --filter-btn-hover: #f9fafb;
+            --filter-btn-active-bg: #1a1a1a;
+            --filter-btn-active-text: #ffffff;
+            --filter-btn-active-border: #1a1a1a;
+            --table-header-bg: #ffffff;
+            --table-header-text: #6b7280;
+            --table-border: #e5e7eb;
+            --table-row-bg: #ffffff;
+            --table-row-hover: #f9fafb;
+            --status-pending-bg: #fef3c7;
+            --status-pending-text: #92400e;
+            --status-approved-bg: #d1fae5;
+            --status-approved-text: #065f46;
+            --status-rejected-bg: #fee2e2;
+            --status-rejected-text: #991b1b;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --border-color: #404040;
+            --card-bg: #2d2d2d;
+            --navbar-bg: #2d2d2d;
+            --input-bg: #404040;
+            --input-border: #4b5563;
+            --input-text: #ffffff;
+            --btn-bg: #404040;
+            --btn-text: #ffffff;
+            --btn-border: #4b5563;
+            --btn-hover: #4b5563;
+            --btn-primary-bg: #ffffff;
+            --btn-primary-text: #1a1a1a;
+            --btn-primary-hover: #e5e7eb;
+            --filter-btn-bg: #404040;
+            --filter-btn-text: #9ca3af;
+            --filter-btn-border: #4b5563;
+            --filter-btn-hover: #4b5563;
+            --filter-btn-active-bg: #ffffff;
+            --filter-btn-active-text: #1a1a1a;
+            --filter-btn-active-border: #ffffff;
+            --table-header-bg: #404040;
+            --table-header-text: #9ca3af;
+            --table-border: #404040;
+            --table-row-bg: #2d2d2d;
+            --table-row-hover: #404040;
+            --status-pending-bg: #78350f;
+            --status-pending-text: #fef3c7;
+            --status-approved-bg: #065f46;
+            --status-approved-text: #d1fae5;
+            --status-rejected-bg: #991b1b;
+            --status-rejected-text: #fee2e2;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f7fa;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
         }
         
         .header {
-            background: white;
+            background: var(--navbar-bg);
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             padding: 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 24px;
+            border-bottom: 1px solid var(--border-color);
         }
         
         .header-brand {
@@ -88,19 +181,19 @@ $requests = $stmt->get_result();
         .header-brand .brand-title {
             font-size: 16px;
             font-weight: 700;
-            color: #1a1a1a;
+            color: var(--text-primary);
         }
         
         .header-brand .brand-subtitle {
             font-size: 12px;
-            color: #6b7280;
+            color: var(--text-secondary);
         }
         
         .btn-back {
             padding: 8px 16px;
-            background: white;
-            color: #1a1a1a;
-            border: 1px solid #e5e7eb;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--btn-border);
             border-radius: 6px;
             text-decoration: none;
             font-weight: 500;
@@ -109,7 +202,7 @@ $requests = $stmt->get_result();
         }
         
         .btn-back:hover {
-            background: #f9fafb;
+            background: var(--btn-hover);
         }
         
         .container {
@@ -119,17 +212,22 @@ $requests = $stmt->get_result();
         }
         
         .page-header {
-            background: white;
+            background: var(--card-bg);
             border-radius: 12px;
             padding: 24px;
             margin-bottom: 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
         }
         
         .page-header h2 {
             font-size: 24px;
-            color: #1a1a1a;
+            color: var(--text-primary);
             margin-bottom: 8px;
+        }
+        
+        .page-header p {
+            color: var(--text-secondary);
         }
         
         .filters {
@@ -141,21 +239,22 @@ $requests = $stmt->get_result();
         
         .filter-btn {
             padding: 8px 16px;
-            border: 1px solid #d1d5db;
-            background: white;
+            border: 1px solid var(--filter-btn-border);
+            background: var(--filter-btn-bg);
             border-radius: 6px;
             cursor: pointer;
             font-weight: 500;
             text-decoration: none;
-            color: #6b7280;
+            color: var(--filter-btn-text);
             font-size: 14px;
+            transition: all 0.2s;
         }
         
         .filter-btn:hover,
         .filter-btn.active {
-            background: #1a1a1a;
-            color: white;
-            border-color: #1a1a1a;
+            background: var(--filter-btn-active-bg);
+            color: var(--filter-btn-active-text);
+            border-color: var(--filter-btn-active-border);
         }
         
         .search-box {
@@ -166,17 +265,25 @@ $requests = $stmt->get_result();
         .search-box input {
             width: 100%;
             padding: 8px 16px;
-            border: 1px solid #d1d5db;
+            background: var(--input-bg);
+            color: var(--input-text);
+            border: 1px solid var(--input-border);
             border-radius: 6px;
             font-size: 14px;
         }
         
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--text-primary);
+        }
+        
         .requests-card {
-            background: white;
+            background: var(--card-bg);
             border-radius: 12px;
             padding: 24px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             overflow-x: auto;
+            border: 1px solid var(--border-color);
         }
         
         .requests-table {
@@ -188,15 +295,21 @@ $requests = $stmt->get_result();
         .requests-table th {
             text-align: left;
             padding: 12px;
-            border-bottom: 2px solid #e5e7eb;
-            color: #6b7280;
+            border-bottom: 2px solid var(--table-border);
+            color: var(--table-header-text);
             font-weight: 600;
             font-size: 14px;
+            background: var(--table-header-bg);
         }
         
         .requests-table td {
             padding: 16px 12px;
-            border-bottom: 1px solid #e5e7eb;
+            border-bottom: 1px solid var(--table-border);
+            background: var(--table-row-bg);
+        }
+        
+        .requests-table tr:hover td {
+            background: var(--table-row-hover);
         }
         
         .status-badge {
@@ -209,33 +322,34 @@ $requests = $stmt->get_result();
         }
         
         .status-badge.pending {
-            background: #fef3c7;
-            color: #92400e;
+            background: var(--status-pending-bg);
+            color: var(--status-pending-text);
         }
         
         .status-badge.approved {
-            background: #d1fae5;
-            color: #065f46;
+            background: var(--status-approved-bg);
+            color: var(--status-approved-text);
         }
         
         .status-badge.rejected {
-            background: #fee2e2;
-            color: #991b1b;
+            background: var(--status-rejected-bg);
+            color: var(--status-rejected-text);
         }
         
         .btn-view {
             padding: 8px 16px;
-            background: #f3f4f6;
-            color: #1a1a1a;
-            border: none;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--btn-border);
             border-radius: 6px;
             text-decoration: none;
             font-weight: 500;
             font-size: 14px;
+            transition: all 0.2s;
         }
         
         .btn-view:hover {
-            background: #e5e7eb;
+            background: var(--btn-hover);
         }
 
         /* Mobile Responsive Styles */
@@ -413,7 +527,7 @@ $requests = $stmt->get_result();
         .no-requests {
             text-align: center;
             padding: 40px;
-            color: #6b7280;
+            color: var(--text-secondary);
         }
         
         .no-requests p {
@@ -424,8 +538,8 @@ $requests = $stmt->get_result();
         .btn-create {
             display: inline-block;
             padding: 12px 24px;
-            background: #1a1a1a;
-            color: white;
+            background: var(--btn-primary-bg);
+            color: var(--btn-primary-text);
             text-decoration: none;
             border-radius: 6px;
             font-weight: 600;
@@ -433,24 +547,24 @@ $requests = $stmt->get_result();
         }
         
         .btn-create:hover {
-            background: #000;
+            background: var(--btn-primary-hover);
             transform: translateY(-2px);
         }
     </style>
 </head>
 <body>
     <header class="header">
-    <a href="dashboard.php" style="text-decoration: none; color: inherit;">
-        <div class="header-brand">
-            <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
-            <div class="brand-text">
-                <div class="brand-title"><?php echo htmlspecialchars($portal_name); ?></div>
-                <div class="brand-subtitle">Your Requests</div>
+        <a href="dashboard.php" style="text-decoration: none; color: inherit;">
+            <div class="header-brand">
+                <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
+                <div class="brand-text">
+                    <div class="brand-title"><?php echo htmlspecialchars($portal_name); ?></div>
+                    <div class="brand-subtitle">Your Requests</div>
+                </div>
             </div>
-        </div>
-    </a>
-    <a href="dashboard.php" class="btn-back">Back</a>
-</header>
+        </a>
+        <a href="dashboard.php" class="btn-back">Back</a>
+    </header>
 
     <div class="container">
         <div class="page-header">
