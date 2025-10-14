@@ -594,13 +594,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
     transition: all 0.2s;
 }
 
-.btn-scan:hover {
-    background: var(--btn-hover);
-}
-    .btn-view:hover {
-        background: var(--bg-secondary);
-    }
-    
+ 
     /* Stats card matching reference design */
     .stats-card {
         background: var(--card-bg);
@@ -1133,45 +1127,59 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             }
         }
         
-        async function loadNotifications() {
-            try {
-                const response = await fetch('api/notifications.php?action=get');
-                const data = await response.json();
-                
-                const badge = document.getElementById('notificationBadge');
-                const list = document.getElementById('notificationList');
-                
-                // Update badge
-                if (data.unread_count > 0) {
-                    badge.textContent = data.unread_count;
-                    badge.style.display = 'block';
-                } else {
-                    badge.style.display = 'none';
-                }
-                
-                // Update list
-                if (data.notifications.length === 0) {
-                    list.innerHTML = `
-                        <div class="notification-empty">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 00-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
-                            </svg>
-                            <p>No notifications</p>
-                        </div>
-                    `;
-                } else {
-                    list.innerHTML = data.notifications.map(notif => `
-                        <div class="notification-item ${notif.is_read == 0 ? 'unread' : ''}" onclick="markAsRead(${notif.id})">
-                            <div class="notification-item-title">${notif.title}</div>
-                            <div class="notification-item-message">${notif.message}</div>
-                            <div class="notification-item-time">${formatTime(notif.created_at)}</div>
-                        </div>
-                    `).join('');
-                }
-            } catch (error) {
-                console.error('[v0] Error loading notifications:', error);
-            }
+async function loadNotifications() {
+    try {
+        const response = await fetch('api/notifications.php?action=get');
+        const data = await response.json();
+        
+        const badge = document.getElementById('notificationBadge');
+        const list = document.getElementById('notificationList');
+        
+        // Update badge
+        if (data.unread_count > 0) {
+            badge.textContent = data.unread_count;
+            badge.style.display = 'block';
+        } else {
+            badge.style.display = 'none';
         }
+        
+        // Update list
+        if (data.notifications.length === 0) {
+            list.innerHTML = `
+                <div class="notification-empty">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 00-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                    </svg>
+                    <p>No notifications</p>
+                </div>
+            `;
+        } else {
+            list.innerHTML = data.notifications.map(notif => `
+                <div class="notification-item ${notif.is_read == 0 ? 'unread' : ''}" 
+                     onclick="handleNotificationClick(${notif.id}, '${notif.action_url || 'my_requests.php'}')">
+                    <div class="notification-item-title">${notif.title}</div>
+                    <div class="notification-item-message">${notif.message}</div>
+                    <div class="notification-item-time">${formatTime(notif.created_at)}</div>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('[v0] Error loading notifications:', error);
+    }
+}
+
+// NEW FUNCTION: Handle notification click
+async function handleNotificationClick(notificationId, actionUrl) {
+    try {
+        // First mark as read
+        await markAsRead(notificationId);
+        
+        // Then navigate to the action URL
+        window.location.href = actionUrl;
+    } catch (error) {
+        console.error('[v0] Error handling notification click:', error);
+    }
+}
         
         async function markAsRead(id) {
             try {
@@ -1223,111 +1231,6 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
                 toggleNotifications();
             }
         });
-    </script>
-    <!-- QR Scanner Modal -->
-<div id="qrScannerModal" class="modal" style="display: none;">
-    <div class="modal-content" style="max-width: 500px;">
-        <div class="modal-header">
-            <h3>Scan Facility QR Code</h3>
-            <button class="close-modal" onclick="closeQRScanner()">×</button>
-        </div>
-        <div class="modal-body">
-            <div id="qr-scanner-container" style="width: 100%; height: 300px; background: #000; position: relative;">
-                <video id="qr-video" style="width: 100%; height: 100%; object-fit: cover;"></video>
-                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 200px; height: 200px; border: 2px solid #fff; border-radius: 8px;"></div>
-            </div>
-            <p style="text-align: center; margin-top: 10px; color: var(--text-secondary);">
-                Point camera at facility QR code
-            </p>
-        </div>
-    </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-<script>
-let qrScannerActive = false;
-let videoStream = null;
-
-function openQRScanner() {
-    const modal = document.getElementById('qrScannerModal');
-    modal.style.display = 'block';
-    startQRScanner();
-}
-
-function closeQRScanner() {
-    const modal = document.getElementById('qrScannerModal');
-    modal.style.display = 'none';
-    stopQRScanner();
-}
-
-function startQRScanner() {
-    const video = document.getElementById('qr-video');
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-        .then(function(stream) {
-            videoStream = stream;
-            video.srcObject = stream;
-            video.play();
-            qrScannerActive = true;
-            scanQRCode(video, canvas, context);
-        })
-        .catch(function(err) {
-            console.error("Error accessing camera: ", err);
-            alert("Cannot access camera. Please check permissions.");
-        });
-}
-
-function stopQRScanner() {
-    qrScannerActive = false;
-    if (videoStream) {
-        videoStream.getTracks().forEach(track => track.stop());
-        videoStream = null;
-    }
-}
-
-function scanQRCode(video, canvas, context) {
-    if (!qrScannerActive) return;
-    
-    if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height);
-        
-        if (code) {
-            handleScannedQR(code.data);
-        }
-    }
-    
-    requestAnimationFrame(() => scanQRCode(video, canvas, context));
-}
-
-function handleScannedQR(qrData) {
-    try {
-        const data = JSON.parse(qrData);
-        if (data.type === 'facility' && data.facilityName) {
-            stopQRScanner();
-            closeQRScanner();
-            
-            // Redirect to create request with pre-filled facility
-            window.location.href = `create_request.php?facility=${encodeURIComponent(data.facilityName)}`;
-        }
-    } catch (e) {
-        console.error('Invalid QR code data:', e);
-    }
-}
-
-// Close modal when clicking outside
-window.onclick = function(event) {
-    const modal = document.getElementById('qrScannerModal');
-    if (event.target === modal) {
-        closeQRScanner();
-    }
-}
 </script>
       <?php include 'chat_bot.php'; ?>
 </body>

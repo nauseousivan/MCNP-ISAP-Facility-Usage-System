@@ -4,6 +4,7 @@ require_once 'theme_loader.php';
 require_once 'config.php';
 require_once 'functions.php';
 
+
 if (!isset($_SESSION['user_id'])) {
     header("Location: index.php");
     exit();
@@ -27,7 +28,7 @@ if ($result->num_rows > 0) {
     $prefs = $result->fetch_assoc();
     $theme = $prefs['theme'];
 }
-
+ 
 $user_id = $_SESSION['user_id'];
 $user_name = $_SESSION['user_name'];
 
@@ -45,7 +46,7 @@ $success_data = []; // Array to hold all submitted data for printing on success
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Generate control number
-    $control_number = 'MCNP-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+    $control_number = 'MCNP-ISAP-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
     
     $requestor_name = $_POST['requestor_name'];
     $department = $_POST['department'];
@@ -265,7 +266,21 @@ $portal_name = $GLOBALS['portal_name'];
             align-items: center;
             gap: 12px;
         }
-        
+        .navbar-brand .brand-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.navbar-brand .brand-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.navbar-brand .brand-subtitle {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
         .navbar-brand img {
             width: 40px;
             height: 40px;
@@ -688,7 +703,13 @@ $portal_name = $GLOBALS['portal_name'];
             .navbar {
                 padding: 16px 32px;
             }
-            
+             .navbar-brand .brand-title {
+        font-size: 16px;
+    }
+    
+    .navbar-brand .brand-subtitle {
+        font-size: 11px;
+    }
             .container {
                 padding: 32px;
             }
@@ -727,9 +748,13 @@ $portal_name = $GLOBALS['portal_name'];
         }
         
         @media (max-width: 480px) {
-            .navbar-brand h1 {
-                font-size: 16px;
-            }
+            .navbar-brand .brand-title {
+        font-size: 14px;
+    }
+    
+    .navbar-brand .brand-subtitle {
+        font-size: 10px;
+    }
             
             .form-header h2 {
                 font-size: 20px;
@@ -767,16 +792,19 @@ $portal_name = $GLOBALS['portal_name'];
     </style>
 </head>
 <body>
-  <nav class="navbar no-print">
+<nav class="navbar no-print">
     <a href="dashboard.php" style="text-decoration: none; color: inherit;">
         <div class="navbar-brand">
             <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
-            <h1><?php echo htmlspecialchars($portal_name); ?></h1>
+            <div class="brand-text">
+                <div class="brand-title"><?php echo htmlspecialchars($portal_name); ?></div>
+                <div class="brand-subtitle">Create Request</div>
+            </div>
         </div>
-        
     </a>
     <a href="dashboard.php" class="btn-back">Back</a>
 </nav>
+
     <div class="container">
         <div class="form-card">
             <div class="form-header">
@@ -897,13 +925,19 @@ $portal_name = $GLOBALS['portal_name'];
         </div>
     </div>
 
-    <div id="printable-form" class="printable" style="display: none;">
-        <div style="max-width: 800px; margin: 0 auto; padding: 40px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-            <div style="text-align: center; margin-bottom: 30px; border-bottom: 1px solid #000; padding-bottom: 20px;">
+<div id="printable-form" class="printable" style="display: none;">
+    <div style="max-width: 800px; margin: 0 auto; padding: 40px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <!-- Header with Circular Logo and Text -->
+        <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 30px; border-bottom: 1px solid #000; padding-bottom: 20px;">
+            <div style="flex-shrink: 0; margin-right: 20px;">
+                <img src="combined-logo.png" alt="Logo" style="height: 80px; width: 80px; border-radius: 50%; object-fit: cover;">
+            </div>
+            <div style="text-align: center; flex-grow: 1;">
                 <h1 style="font-size: 24px; margin-bottom: 5px; font-weight: bold;">FACILITY USAGE FORM REQUEST</h1>
                 <p style="font-size: 14px; color: #555; margin-bottom: 10px;">General Services Office (Property Custodian)</p>
-                <p id="print-control-number" style="font-size: 16px; font-weight: bold; display: inline-block; padding: 5px 15px;"></p>
+                <p id="print-control-number" style="font-size: 16px; font-weight: bold; display: inline-block; padding: 5px 15px; background: #f5f5f5; border-radius: 4px;"></p>
             </div>
+        </div>
             
             <div style="margin-bottom: 30px;">
                 <h2 style="font-size: 18px; margin-bottom: 15px; border-bottom: 1px solid #000; padding-bottom: 10px; font-weight: bold;">REQUESTOR INFORMATION</h2>

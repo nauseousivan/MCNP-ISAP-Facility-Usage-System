@@ -30,33 +30,36 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $sql = "INSERT INTO users (name, email, department, program, password, user_type, verification_code, verified, created_at) 
                 VALUES ('$full_name', '$email', '$department', '$program', '$password', '$user_type', '$verification_code', 0, NOW())";
         
-        if ($conn->query($sql) === TRUE) {
-            // Check if PHPMailer is installed
-            if (!file_exists('vendor/autoload.php')) {
-                $error = "PHPMailer is not installed! Please run: composer require phpmailer/phpmailer";
-            } else {
-                require_once 'send_email.php';
-                
-                // Try to send email and capture any errors
-                $emailSent = sendVerificationEmail($email, $full_name, $verification_code);
-                
-                if ($emailSent) {
-                    $_SESSION['verification_code'] = $verification_code;
-                    $_SESSION['verify_email'] = $email;
-                    $_SESSION['email_sent'] = true;
-                    header("Location: verify.php");
-                    exit();
-                } else {
-                    // Show detailed error message
-                    $error = "Account created successfully! However, we couldn't send the verification email. ";
-                    $error .= "Please check your config.php file and make sure your Gmail App Password is correct. ";
-                    $error .= "Your verification code is: <strong>$verification_code</strong> (You can use this to verify manually)";
-                }
-            }
+        // In your registration section, replace the email sending part:
+if ($conn->query($sql) === TRUE) {
+    // Check if PHPMailer is installed
+    if (!file_exists('vendor/autoload.php')) {
+        $error = "PHPMailer is not installed! Please run: composer require phpmailer/phpmailer";
+    } else {
+        require_once 'send_email.php';
+        
+        // Try to send email and capture any errors
+        $emailSent = sendVerificationEmail($email, $full_name, $verification_code);
+        
+        if ($emailSent) {
+            $_SESSION['verification_code'] = $verification_code;
+            $_SESSION['verify_email'] = $email;
+            $_SESSION['email_sent'] = true;
+            header("Location: verify.php");
+            exit();
         } else {
-            $error = "Error: " . $conn->error;
+            // Show detailed error message
+            $error = "Account created successfully! However, we couldn't send the verification email. ";
+            $error .= "Please check your config.php file and make sure your Gmail App Password is correct. ";
+            $error .= "Your verification code is: <strong>$verification_code</strong> (You can use this to verify manually)";
         }
     }
+} else {
+    $error = "Error: " . $conn->error;
+}
+} else {
+    $error = "Error: " . $conn->error;
+}
     
     if (isset($_POST['login'])) {
         $email = $_POST['email'];

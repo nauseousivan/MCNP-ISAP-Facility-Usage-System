@@ -25,6 +25,8 @@ if ($action === 'get') {
     
     $notifications = [];
     while ($row = $result->fetch_assoc()) {
+        // Add action URL to each notification
+        $row['action_url'] = getNotificationAction($row);
         $notifications[] = $row;
     }
     
@@ -40,7 +42,6 @@ if ($action === 'get') {
         'notifications' => $notifications,
         'unread_count' => $unread_count
     ]);
-    
 } elseif ($action === 'mark_read') {
     // Mark notification as read
     $notif_id = $_POST['id'] ?? 0;
@@ -83,4 +84,38 @@ if ($action === 'get') {
 }
 
 $conn->close();
+function getNotificationAction($notification) {
+    // Priority 1: Direct request_id linking (most reliable)
+    if (!empty($notification['request_id'])) {
+        return 'view_request.php?id=' . $notification['request_id'];
+    }
+    
+    // Priority 2: Type-based routing
+    switch ($notification['notification_type']) {
+        case 'request_approved':
+        case 'request_rejected':
+            return 'my_requests.php';
+        case 'profile_update':
+        case 'profile_picture_update':
+        case 'phone_updated':
+            return 'profile.php';  // This should go to profile.php, NOT my_requests.php
+        default:
+            // Priority 3: Fallback to control number parsing
+            preg_match('/#([A-Z0-9]+)/', $notification['message'], $matches);
+            if (isset($matches[1])) {
+                // Try to find request by control number
+                global $conn;
+                $sql = "SELECT id FROM facility_requests WHERE control_number = ? AND user_id = ?";
+                $stmt = $conn->prepare($sql);
+                $stmt->bind_param("si", $matches[1], $notification['user_id']);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                if ($result->num_rows > 0) {
+                    $request = $result->fetch_assoc();
+                    return 'view_request.php?id=' . $request['id'];
+                }
+            }
+            return 'profile.php';  // Changed default to profile.php instead of my_requests.php
+    }
+}
 ?>

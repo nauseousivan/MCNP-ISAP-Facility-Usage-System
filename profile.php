@@ -704,18 +704,18 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
     </style>
 </head>
 <body>
-    <header class="header">
-        <a href="dashboard.php" class="logo-link">
-            <div class="header-brand">
-                <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
-                <div class="brand-text">
-                    <div class="brand-title"><?php echo htmlspecialchars($portal_name); ?></div>
-                    <div class="brand-subtitle">Profile Settings</div>
-                </div>
+<header class="header">
+    <a href="dashboard.php" style="text-decoration: none; color: inherit;">
+        <div class="header-brand">
+            <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
+            <div class="brand-text">
+                <div class="brand-title"><?php echo htmlspecialchars($portal_name); ?></div>
+                <div class="brand-subtitle">Profile Settings</div>
             </div>
-        </a>
-        <a href="dashboard.php" class="btn-back">Back</a>
-    </header>
+        </div>
+    </a>
+    <a href="dashboard.php" class="btn-back">Back</a>
+</header>
 
     <div class="container">
         <?php if ($success): ?>

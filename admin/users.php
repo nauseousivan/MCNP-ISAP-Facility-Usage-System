@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../config.php';
+require_once '../send_email.php';
 
 // Check if user is admin
 if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'Admin') {
@@ -16,14 +17,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $action = $_POST['action'];
     
     if ($action === 'approve') {
+        // FIRST: Get user email and name before approving
+        $userQuery = $conn->prepare("SELECT email, name FROM users WHERE id = ?");
+        $userQuery->bind_param("i", $user_id);
+        $userQuery->execute();
+        $userResult = $userQuery->get_result();
+        
+        if ($userResult->num_rows > 0) {
+            $userData = $userResult->fetch_assoc();
+            $user_email = $userData['email'];
+            $user_name = $userData['name'];
+        }
+        
+        // THEN: Approve the user
         $sql = "UPDATE users SET approved = 1 WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        
+        // FINALLY: Send approval email if user was found
+        if (isset($user_email) && isset($user_name)) {
+            $emailSent = sendApprovalNotificationEmail($user_email, $user_name);
+            
+            if ($emailSent) {
+                $_SESSION['admin_message'] = "User approved successfully and notification email sent!";
+                error_log("Approval email sent to: $user_email");
+            } else {
+                $_SESSION['admin_message'] = "User approved but failed to send notification email.";
+                error_log("Failed to send approval email to: $user_email");
+            }
+        } else {
+            $_SESSION['admin_message'] = "User approved successfully.";
+        }
+        
     } else {
+        // For rejection (delete user)
         $sql = "DELETE FROM users WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        
+        $_SESSION['admin_message'] = "User rejected and removed from system.";
     }
-    
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
     
     header("Location: users.php?success=1");
     exit();

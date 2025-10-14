@@ -155,6 +155,93 @@ function sendWelcomeEmail($toEmail, $toName) {
         return false;
     }
 }
+function sendApprovalNotificationEmail($toEmail, $toName) {
+    $mail = new PHPMailer(true);
+    
+    try {
+        // Server settings
+        $mail->isSMTP();
+        $mail->Host = SMTP_HOST;
+        $mail->SMTPAuth = true;
+        $mail->Username = SMTP_USERNAME;
+        $mail->Password = SMTP_PASSWORD;
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = SMTP_PORT;
+        
+        // Recipients
+        $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
+        $mail->addAddress($toEmail, $toName);
+        
+        // Content
+        $mail->isHTML(true);
+        $mail->Subject = 'Account Approved - MCNP-ISAP Service Portal';
+        
+        // Email body with nice styling
+        $mail->Body = "
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+                .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+                .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
+                .button { display: inline-block; padding: 12px 30px; background: #10b981; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+                .success-icon { font-size: 48px; margin-bottom: 20px; }
+            </style>
+        </head>
+        <body>
+            <div class='container'>
+                <div class='header'>
+                    <h1>🎉 Account Approved!</h1>
+                    <p>MCNP-ISAP Service Portal</p>
+                </div>
+                <div class='content'>
+                    <div style='text-align: center;'>
+                        <div class='success-icon'>✅</div>
+                    </div>
+                    
+                    <h2>Congratulations, $toName!</h2>
+                    <p>Your account has been <strong>approved</strong> by the administrator and is now active.</p>
+                    
+                    <p>You can now access all features of the MCNP-ISAP Service Portal, including:</p>
+                    <ul>
+                        <li>Facility reservations</li>
+                        <li>Service requests</li>
+                        <li>Account management</li>
+                        <li>And much more!</li>
+                    </ul>
+                    
+                    <p style='text-align: center;'>
+                        <a href='" . SITE_URL . "/index.php' class='button'>Login to Your Account</a>
+                    </p>
+                    
+                    <p>If you have any questions, please contact the system administrator.</p>
+                    
+                    <p style='font-size: 12px; color: #666; margin-top: 30px;'>
+                        Welcome to the MCNP-ISAP community!
+                    </p>
+                </div>
+                <div class='footer'>
+                    <p>Medical Colleges of Northern Philippines<br>
+                    International School of Asia and the Pacific</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        ";
+        
+        // Plain text version
+        $mail->AltBody = "Congratulations $toName!\n\nYour account has been approved by the administrator and is now active.\n\nYou can now login to the MCNP-ISAP Service Portal at: " . SITE_URL . "/index.php\n\nWelcome to the MCNP-ISAP community!";
+        
+        $mail->send();
+        return true;
+    } catch (Exception $e) {
+        error_log("Approval notification email failed: {$mail->ErrorInfo}");
+        return false;
+    }
+}
 // Add this function to your existing send_email.php file
 function sendPasswordResetEmail($toEmail, $toName, $verificationCode) {
     $mail = new PHPMailer(true);

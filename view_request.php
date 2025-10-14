@@ -128,53 +128,59 @@ $portal_name = $GLOBALS['portal_name'];
             color: var(--text-primary);
         }
         
-        .navbar {
-            background: var(--navbar-bg);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            padding: 16px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            border-bottom: 1px solid var(--border-color);
-        }
-        
-        .navbar-brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        .navbar-brand img {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-        }
-        
-        .navbar-brand h1 {
-            font-size: 18px;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-        
-        .btn-back {
-            padding: 8px 16px;
-            background: var(--btn-bg);
-            color: var(--btn-text);
-            border: 1px solid var(--btn-border);
-            border-radius: 6px;
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 14px;
-            white-space: nowrap;
-            transition: all 0.2s;
-        }
-        
-        .btn-back:hover {
-            background: var(--btn-hover);
-        }
+.header {
+    background: var(--navbar-bg);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.header-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.header-brand img {
+    height: 40px;
+    width: auto;
+}
+
+.header-brand .brand-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.header-brand .brand-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.header-brand .brand-subtitle {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.btn-back {
+    padding: 8px 16px;
+    background: var(--btn-bg);
+    color: var(--btn-text);
+    border: 1px solid var(--btn-border);
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.btn-back:hover {
+    background: var(--btn-hover);
+}
         
         .container {
             max-width: 1000px;
@@ -372,14 +378,28 @@ $portal_name = $GLOBALS['portal_name'];
         }
         
         /* Mobile-specific improvements */
-        @media (max-width: 480px) {
-            .navbar {
-                padding: 12px 16px;
-            }
-            
-            .navbar-brand h1 {
-                font-size: 16px;
-            }
+ @media (max-width: 480px) {
+    .header {
+        padding: 12px 16px;
+        margin-bottom: 20px;
+    }
+    
+    .header-brand img {
+        height: 36px;
+    }
+    
+    .header-brand .brand-title {
+        font-size: 14px;
+    }
+    
+    .header-brand .brand-subtitle {
+        font-size: 11px;
+    }
+    
+    .btn-back {
+        padding: 6px 12px;
+        font-size: 13px;
+    }
             
             .container {
                 margin: 16px auto;
@@ -405,32 +425,47 @@ $portal_name = $GLOBALS['portal_name'];
         }
         
         /* Print styles */
-        @media print {
-            .navbar, .btn-back {
-                display: none;
-            }
-            
-            body {
-                background: white;
-            }
-            
-            .request-card {
-                box-shadow: none;
-                padding: 0;
-            }
-        }
+@media (max-width: 360px) {
+    .header {
+        padding: 10px 12px;
+    }
+    
+    .header-brand {
+        gap: 8px;
+    }
+    
+    .header-brand img {
+        height: 32px;
+    }
+    
+    .header-brand .brand-title {
+        font-size: 13px;
+    }
+    
+    .header-brand .brand-subtitle {
+        font-size: 10px;
+    }
+    
+    .btn-back {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+}
     </style>
 </head>
 <body>
-    <nav class="navbar">
-        <a href="dashboard.php" style="text-decoration: none; color: inherit;">
-            <div class="navbar-brand">
-                <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
-                <h1><?php echo htmlspecialchars($portal_name); ?></h1>
+<header class="header">
+    <a href="dashboard.php" style="text-decoration: none; color: inherit;">
+        <div class="header-brand">
+            <img src="<?php echo htmlspecialchars($logo_file); ?>" alt="Logo">
+            <div class="brand-text">
+                <div class="brand-title"><?php echo htmlspecialchars($portal_name); ?></div>
+                <div class="brand-subtitle">Create Request</div>
             </div>
-        </a>
-        <a href="dashboard.php" class="btn-back">Back</a>
-    </nav>
+        </div>
+    </a>
+    <a href="dashboard.php" class="btn-back">Back</a>
+</header>
     
     <div class="container">
         <div class="request-card">

@@ -8,6 +8,15 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'Admin') {
     exit();
 }
 
+// Function to create notification
+// Function to create notification
+function createNotification($conn, $user_id, $title, $message, $request_id = null, $type = null) {
+    $sql = "INSERT INTO notifications (user_id, title, message, request_id, notification_type, created_at) VALUES (?, ?, ?, ?, ?, NOW())";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("issis", $user_id, $title, $message, $request_id, $type);
+    return $stmt->execute();
+}
+
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
 // Handle status update
@@ -18,12 +27,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     
     $status = ($action === 'approve') ? 'approved' : 'rejected';
     
-    $sql = "UPDATE facility_requests SET status = ?, admin_notes = ? WHERE id = ?";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("ssi", $status, $admin_notes, $request_id);
-    $stmt->execute();
+    // First, get the request details to know which user to notify
+    $get_request_sql = "SELECT user_id, control_number, event_type FROM facility_requests WHERE id = ?";
+    $get_stmt = $conn->prepare($get_request_sql);
+    $get_stmt->bind_param("i", $request_id);
+    $get_stmt->execute();
+    $request_data = $get_stmt->get_result()->fetch_assoc();
     
+    if ($request_data) {
+        $user_id = $request_data['user_id'];
+        $control_number = $request_data['control_number'];
+        $event_type = $request_data['event_type'];
+        
+        // Update the request status
+        $sql = "UPDATE facility_requests SET status = ?, admin_notes = ? WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("ssi", $status, $admin_notes, $request_id);
+        
+if ($stmt->execute()) {
+    // Create notification for the user
+    if ($action === 'approve') {
+        $title = "Request Approved";
+        $message = "Your facility request #{$control_number} for '{$event_type}' has been approved.";
+        $type = 'request_approved';
+    } else {
+        $title = "Request Rejected";
+        $message = "Your facility request #{$control_number} for '{$event_type}' has been rejected." . 
+                  ($admin_notes ? " Note: {$admin_notes}" : "");
+        $type = 'request_rejected';
+    }
+    
+    createNotification($conn, $user_id, $title, $message, $request_id, $type);
     header("Location: requests.php?success=1");
+    exit();
+}
+    }
+    
+    header("Location: requests.php?error=1");
     exit();
 }
 
@@ -655,116 +695,74 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             </div>
 
             <!-- Requests Table -->
-<!-- Requests Table -->
-<div class="card">
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Control Number</th>
-                <th>Requestor</th>
-                <th>Department</th>
-                <th>Event Type</th>
-                <th>Status</th>
-                <th>Date</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php while ($request = $requests->fetch_assoc()): ?>
-                <tr>
-                    <td><?php echo htmlspecialchars($request['control_number']); ?></td>
-                    <td>
-                        <?php echo htmlspecialchars($request['user_name']); ?><br>
-                        <small style="color: var(--muted-foreground);"><?php echo htmlspecialchars($request['user_email']); ?></small>
-                    </td>
-                    <td><?php echo htmlspecialchars($request['department']); ?></td>
-                    <td><?php echo htmlspecialchars($request['event_type']); ?></td>
-                    <td>
-                        <span class="badge <?php echo $request['status']; ?>">
-                            <?php echo ucfirst($request['status']); ?>
-                        </span>
-                    </td>
-                    <td><?php echo date('M j, Y', strtotime($request['created_at'])); ?></td>
-<!-- Requests Table -->
-<div class="card">
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Control Number</th>
-                <th>Requestor</th>
-                <th>Department</th>
-                <th>Event Type</th>
-                <th>Status</th>
-                <th>Date</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php 
-            // Reset pointer and loop through requests again
-            $requests->data_seek(0);
-            while ($request = $requests->fetch_assoc()): 
-            ?>
-                <tr>
-                    <td><?php echo htmlspecialchars($request['control_number']); ?></td>
-                    <td>
-                        <?php echo htmlspecialchars($request['user_name']); ?><br>
-                        <small style="color: var(--muted-foreground);"><?php echo htmlspecialchars($request['user_email']); ?></small>
-                    </td>
-                    <td><?php echo htmlspecialchars($request['department']); ?></td>
-                    <td><?php echo htmlspecialchars($request['event_type']); ?></td>
-                    <td>
-                        <span class="badge <?php echo $request['status']; ?>">
-                            <?php echo ucfirst($request['status']); ?>
-                        </span>
-                    </td>
-                    <td><?php echo date('M j, Y', strtotime($request['created_at'])); ?></td>
-                    <td>
-                        <?php if (strtolower($request['status']) === 'pending'): ?>
-                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                <form method="POST" style="display: inline;">
-                                    <input type="hidden" name="request_id" value="<?php echo $request['id']; ?>">
-                                    <input type="hidden" name="admin_notes" value="">
-                                    <button type="submit" name="action" value="approve" class="btn btn-primary" onclick="return confirm('Approve this request?')">Approve</button>
-                                </form>
-                                <form method="POST" style="display: inline;">
-                                    <input type="hidden" name="request_id" value="<?php echo $request['id']; ?>">
-                                    <input type="hidden" name="admin_notes" value="">
-                                    <button type="submit" name="action" value="reject" class="btn btn-reject" onclick="return confirm('Reject this request?')">Reject</button>
-                                </form>
-                            </div>
+            <div class="card">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Control Number</th>
+                            <th>Requestor</th>
+                            <th>Department</th>
+                            <th>Event Type</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if ($requests && $requests->num_rows > 0): ?>
+                            <?php while ($request = $requests->fetch_assoc()): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($request['control_number']); ?></td>
+                                    <td>
+                                        <?php echo htmlspecialchars($request['user_name']); ?><br>
+                                        <small style="color: var(--muted-foreground);"><?php echo htmlspecialchars($request['user_email']); ?></small>
+                                    </td>
+                                    <td><?php echo htmlspecialchars($request['department']); ?></td>
+                                    <td><?php echo htmlspecialchars($request['event_type']); ?></td>
+                                    <td>
+                                        <span class="badge <?php echo $request['status']; ?>">
+                                            <?php echo ucfirst($request['status']); ?>
+                                        </span>
+                                    </td>
+                                    <td><?php echo date('M j, Y', strtotime($request['created_at'])); ?></td>
+                                    <td>
+                                        <?php if (strtolower($request['status']) === 'pending'): ?>
+                                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                                <form method="POST" style="display: inline;">
+                                                    <input type="hidden" name="request_id" value="<?php echo $request['id']; ?>">
+                                                    <input type="hidden" name="admin_notes" value="">
+                                                    <button type="submit" name="action" value="approve" class="btn btn-primary" onclick="return confirm('Approve this request?')">Approve</button>
+                                                </form>
+                                                <form method="POST" style="display: inline;">
+                                                    <input type="hidden" name="request_id" value="<?php echo $request['id']; ?>">
+                                                    <input type="hidden" name="admin_notes" value="">
+                                                    <button type="submit" name="action" value="reject" class="btn btn-reject" onclick="return confirm('Reject this request?')">Reject</button>
+                                                </form>
+                                            </div>
+                                        <?php else: ?>
+                                            <a href="view_request_admin.php?id=<?php echo $request['id']; ?>" class="btn btn-primary">View</a>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endwhile; ?>
                         <?php else: ?>
-                            <a href="view_request_admin.php?id=<?php echo $request['id']; ?>" class="btn btn-primary">View</a>
+                            <tr>
+                                <td colspan="7">
+                                    <div class="empty-state">
+                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                        </svg>
+                                        <p>No requests found</p>
+                                    </div>
+                                </td>
+                            </tr>
                         <?php endif; ?>
-                    </td>
-                </tr>
-            <?php endwhile; ?>
-        </tbody>
-    </table>
-    
-    <?php if ($requests->num_rows === 0): ?>
-        <div class="empty-state">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-            </svg>
-            <p>No requests found</p>
-        </div>
-    <?php endif; ?>
-</div>
-                </tr>
-            <?php endwhile; ?>
-        </tbody>
-    </table>
-    
-    <?php if ($requests->num_rows === 0): ?>
-        <div class="empty-state">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-            </svg>
-            <p>No requests found</p>
-        </div>
-    <?php endif; ?>
-</div>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
     <script>
         // Theme toggle functionality
         function toggleTheme() {
@@ -841,7 +839,6 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
                 document.body.classList.remove('sidebar-open');
             }
         });
-        
     </script>
 </body>
 </html>
