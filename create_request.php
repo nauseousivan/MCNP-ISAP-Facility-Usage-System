@@ -4,7 +4,6 @@ require_once 'theme_loader.php';
 require_once 'config.php';
 require_once 'functions.php';
 
-
 if (!isset($_SESSION['user_id'])) {
     header("Location: index.php");
     exit();
@@ -63,64 +62,94 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         'event_type' => $event_type
     ];
 
+    // SERVER-SIDE VALIDATION FOR BOOKING CONFLICTS
+    $has_conflict = false;
+    $conflict_details = '';
+    $facilities_to_check = $_POST['facilities'] ?? [];
+    foreach ($facilities_to_check as $index => $facility_name) {
+        $date_needed = $_POST['dates'][$index];
+        $start_time = $_POST['start_times'][$index];
+        $end_time = $_POST['end_times'][$index];
+
+        if (check_for_booking_conflict($conn, $facility_name, $date_needed, $start_time, $end_time)) {
+            $has_conflict = true;
+            $conflict_details = "Conflict found for '$facility_name' on $date_needed between $start_time and $end_time. This slot may have been taken while you were filling out the form.";
+            break; // Exit loop on first conflict
+        }
+    }
+
+    if ($has_conflict) {
+        $error = $conflict_details;
+        // To prevent form submission but retain user's input, we will just set the error and let the page re-render.
+        // We must avoid executing the database insertion logic below.
+    } else {
+        // NO CONFLICTS, PROCEED WITH INSERTION
+
     // Insert main request
     $sql = "INSERT INTO facility_requests (control_number, user_id, requestor_name, department, email, phone_number, event_type, status) 
             VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("sisssss", $control_number, $user_id, $requestor_name, $department, $email, $phone_number, $event_type);
     
-    if ($stmt->execute()) {
-        $request_id = $conn->insert_id;
-        
-        // Insert facility details
-        $facilities = $_POST['facilities'] ?? [];
-        $dates = $_POST['dates'] ?? [];
-        $times = $_POST['times'] ?? [];
-        $hours = $_POST['hours'] ?? [];
-        $participants = $_POST['participants'] ?? [];
-        $remarks = $_POST['remarks'] ?? [];
-        
-        $success_data['facilities'] = [];
+   if ($stmt->execute()) {
+    $request_id = $conn->insert_id;
+    
+    // Insert facility details
+    $facilities = $_POST['facilities'] ?? [];
+    $dates = $_POST['dates'] ?? [];
+    $start_times = $_POST['start_times'] ?? [];
+    $end_times = $_POST['end_times'] ?? [];
+    $hours = $_POST['hours'] ?? [];
+    $participants = $_POST['participants'] ?? [];
+    $remarks = $_POST['remarks'] ?? [];
+    
+    $success_data['facilities'] = [];
 
-        $detail_sql = "INSERT INTO facility_request_details (request_id, facility_name, date_needed, time_needed, total_hours, total_participants, remarks) 
-                       VALUES (?, ?, ?, ?, ?, ?, ?)";
-        $detail_stmt = $conn->prepare($detail_sql);
-        
-        foreach ($facilities as $index => $facility) {
-            if (!empty($facility) && !empty($dates[$index])) {
-                $detail_stmt->bind_param("isssdis", 
-                    $request_id, 
-                    $facility, 
-                    $dates[$index], 
-                    $times[$index], 
-                    $hours[$index], 
-                    $participants[$index], 
-                    $remarks[$index]
-                );
-                $detail_stmt->execute();
-                
-                // Store facility details for printing
-                $success_data['facilities'][] = [
-                    'name' => $facility,
-                    'date' => $dates[$index],
-                    'time' => $times[$index],
-                    'hours' => $hours[$index],
-                    'participants' => $participants[$index],
-                    'remarks' => $remarks[$index]
-                ];
-            }
+    // Use the existing time_needed column but store both times
+    $detail_sql = "INSERT INTO facility_request_details (request_id, facility_name, date_needed, time_needed, total_hours, total_participants, remarks) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?)";
+    $detail_stmt = $conn->prepare($detail_sql);
+    
+    foreach ($facilities as $index => $facility) {
+        if (!empty($facility) && !empty($dates[$index])) {
+            // Combine start and end times for display in time_needed column
+            $time_display = $start_times[$index] . ' to ' . $end_times[$index];
+            
+            $detail_stmt->bind_param("isssdis", 
+                $request_id, 
+                $facility, 
+                $dates[$index], 
+                $time_display,
+                $hours[$index], 
+                $participants[$index], 
+                $remarks[$index]
+            );
+            $detail_stmt->execute();
+            
+            // Store facility details for printing
+            $success_data['facilities'][] = [
+                'name' => $facility,
+                'date' => $dates[$index],
+                'start_time' => $start_times[$index],
+                'end_time' => $end_times[$index],
+                'hours' => $hours[$index],
+                'participants' => $participants[$index],
+                'remarks' => $remarks[$index]
+            ];
         }
-        
-        // ADD NOTIFICATION FOR REQUEST SUBMISSION
-        add_action_notification($conn, $user_id, 'request_submitted', ['control_number' => $control_number]);
-        
-        $success = "Request submitted successfully! Control Number: <strong>$control_number</strong>";
-    } else {
-        $error = "Error submitting request: " . $conn->error;
     }
+    
+    // ADD NOTIFICATION FOR REQUEST SUBMISSION
+    add_action_notification($conn, $user_id, 'request_submitted', ['control_number' => $control_number]);
+    
+    $success = "Request submitted successfully! Control Number: <strong>$control_number</strong>";
+} else {
+    $error = "Error submitting request: " . $conn->error;
 }
-// Available facilities
-// Available facilities (NEW - FROM DATABASE)
+    } // End of the 'else' block for conflict check
+}
+
+// Available facilities (FROM DATABASE)
 $facilities_list = [];
 $sql = "SELECT name FROM facilities WHERE is_active = TRUE ORDER BY name";
 $result = $conn->query($sql);
@@ -244,8 +273,52 @@ $portal_name = $GLOBALS['portal_name'];
             --alert-warning-border: #92400e;
         }
 
+        @font-face {
+            font-family: 'Geist Sans';
+            src: url('node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2') format('woff2');
+            font-weight: 100 900;
+            font-style: normal;
+        }
+
+        /* New Theme Palettes */
+        [data-theme="blue"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f0f9ff; /* sky-50 */
+            --text-primary: #0c4a6e; /* sky-900 */
+            --text-secondary: #38bdf8; /* sky-400 */
+            --border-color: #e0f2fe; /* sky-100 */
+            --accent-color: #0ea5e9; /* sky-500 */
+        }
+
+        [data-theme="pink"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #fdf2f8; /* pink-50 */
+            --text-primary: #831843; /* pink-900 */
+            --text-secondary: #f472b6; /* pink-400 */
+            --border-color: #fce7f3; /* pink-100 */
+            --accent-color: #ec4899; /* pink-500 */
+        }
+
+        [data-theme="green"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f0fdf4; /* green-50 */
+            --text-primary: #14532d; /* green-900 */
+            --text-secondary: #4ade80; /* green-400 */
+            --border-color: #dcfce7; /* green-100 */
+            --accent-color: #22c55e; /* green-500 */
+        }
+
+        [data-theme="purple"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f3ff; /* violet-50 */
+            --text-primary: #4c1d95; /* violet-900 */
+            --text-secondary: #a78bfa; /* violet-400 */
+            --border-color: #ede9fe; /* violet-100 */
+            --accent-color: #8b5cf6; /* violet-500 */
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: var(--bg-secondary);
             color: var(--text-primary);
             overflow-x: hidden;
@@ -267,30 +340,25 @@ $portal_name = $GLOBALS['portal_name'];
             gap: 12px;
         }
         .navbar-brand .brand-text {
-    display: flex;
-    flex-direction: column;
-}
+            display: flex;
+            flex-direction: column;
+        }
 
-.navbar-brand .brand-title {
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--text-primary);
-}
+        .navbar-brand .brand-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
 
-.navbar-brand .brand-subtitle {
-    font-size: 12px;
-    color: var(--text-secondary);
-}
+        .navbar-brand .brand-subtitle {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
         .navbar-brand img {
             width: 40px;
             height: 40px;
             border-radius: 50%;
-        }
-        
-        .navbar-brand h1 {
-            font-size: 18px;
-            font-weight: 700;
-            color: var(--text-primary);
         }
         
         .btn-back {
@@ -392,6 +460,12 @@ $portal_name = $GLOBALS['portal_name'];
             background: var(--step-completed-bg);
             border-color: var(--step-completed-bg);
             color: var(--step-completed-text);
+        }
+
+        .step.completed .step-circle {
+            background: var(--btn-success-bg);
+            border-color: var(--btn-success-bg);
+            color: var(--btn-success-text);
         }
         
         .step-label {
@@ -573,6 +647,11 @@ $portal_name = $GLOBALS['portal_name'];
             margin-top: 24px;
         }
         
+        /* Ensure space-between on last step navigation */
+        #section-3 .form-navigation {
+            justify-content: space-between;
+        }
+
         .btn-prev, .btn-next {
             padding: 12px 20px;
             background: var(--btn-bg);
@@ -704,12 +783,13 @@ $portal_name = $GLOBALS['portal_name'];
                 padding: 16px 32px;
             }
              .navbar-brand .brand-title {
-        font-size: 16px;
-    }
-    
-    .navbar-brand .brand-subtitle {
-        font-size: 11px;
-    }
+                font-size: 16px;
+            }
+            
+            .navbar-brand .brand-subtitle {
+                font-size: 11px;
+            }
+            
             .container {
                 padding: 32px;
             }
@@ -749,12 +829,12 @@ $portal_name = $GLOBALS['portal_name'];
         
         @media (max-width: 480px) {
             .navbar-brand .brand-title {
-        font-size: 14px;
-    }
-    
-    .navbar-brand .brand-subtitle {
-        font-size: 10px;
-    }
+                font-size: 14px;
+            }
+            
+            .navbar-brand .brand-subtitle {
+                font-size: 10px;
+            }
             
             .form-header h2 {
                 font-size: 20px;
@@ -844,20 +924,51 @@ $portal_name = $GLOBALS['portal_name'];
             <div class="form-steps">
                 <div class="step active" id="step-1">
                     <div class="step-circle">1</div>
-                    <div class="step-label">Requestor Info</div>
+                    <div class="step-label">Select Facilities</div>
                 </div>
                 <div class="step" id="step-2">
                     <div class="step-circle">2</div>
-                    <div class="step-label">Select Facilities</div>
+                    <div class="step-label">Details & Schedule</div>
                 </div>
                 <div class="step" id="step-3">
                     <div class="step-circle">3</div>
-                    <div class="step-label">Details & Submit</div>
+                    <div class="step-label">Requestor Info</div>
                 </div>
             </div>
 
             <form method="POST" action="" id="request-form">
                 <div class="form-section active" id="section-1">
+                    <h3>Select Facilities</h3>
+                    <p>Click on the facilities you need for your event:</p>
+                    
+                    <div class="facilities-grid" id="facilities-grid">
+                        <?php foreach ($facilities_list as $facility): ?>
+                            <div class="facility-card" data-facility="<?php echo $facility; ?>">
+                                <h4><?php echo $facility; ?></h4>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                    
+                    <div class="form-navigation">
+                        <div></div>
+                        <button type="button" class="btn-next" onclick="nextStep(1)">Next</button>
+                    </div>
+                </div>
+
+                <div class="form-section" id="section-2">
+                    <h3>Details of Selected Facilities</h3>
+                    
+                    <div id="facilities-container">
+                        <!-- Facility details will be generated here -->
+                    </div>
+                    
+                    <div class="form-navigation">
+                        <button type="button" class="btn-prev" onclick="prevStep(2)">Previous</button>
+                        <button type="button" class="btn-next" onclick="nextStep(2)">Next</button>
+                    </div>
+                </div>
+
+                <div class="form-section" id="section-3">
                     <h3>Requestor Information</h3>
                     <div class="form-row">
                         <div class="form-group">
@@ -883,38 +994,7 @@ $portal_name = $GLOBALS['portal_name'];
                         <label>Type of Event *</label>
                         <input type="text" name="event_type" placeholder="e.g., Seminar, Workshop, Meeting, Conference" required>
                     </div>
-                    
-                    <div class="form-navigation">
-                        <div></div> 
-                        <button type="button" class="btn-next" onclick="nextStep(1)">Next</button>
-                    </div>
-                </div>
 
-                <div class="form-section" id="section-2">
-                    <h3>Select Facilities</h3>
-                    <p>Click on the facilities you need for your event:</p>
-                    
-                    <div class="facilities-grid" id="facilities-grid">
-                        <?php foreach ($facilities_list as $facility): ?>
-                            <div class="facility-card" data-facility="<?php echo $facility; ?>">
-                                <h4><?php echo $facility; ?></h4>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                    
-                    <div class="form-navigation">
-                        <button type="button" class="btn-prev" onclick="prevStep(2)">Previous</button>
-                        <button type="button" class="btn-next" onclick="nextStep(2)">Next</button>
-                    </div>
-                </div>
-
-                <div class="form-section" id="section-3">
-                    <h3>Details of Selected Facilities</h3>
-                    
-                    <div id="facilities-container">
-                        <!-- Facility details will be generated here -->
-                    </div>
-                    
                     <div class="form-navigation">
                         <button type="button" class="btn-prev" onclick="prevStep(3)">Previous</button>
                         <button type="submit" class="btn-submit">Submit Request</button>
@@ -1006,27 +1086,51 @@ $portal_name = $GLOBALS['portal_name'];
         let currentStep = 1;
         let selectedFacilities = [];
         let facilityCount = 0;
+        let allBookings = {};
+
+        function generateTimeOptions() {
+            let options = '<option value="">Select time</option>';
+            for (let i = 7; i <= 22; i++) { // 7 AM to 10 PM
+                for (let j = 0; j < 60; j += 30) {
+                    if (i === 22 && j > 0) continue; // Stop at 10:00 PM
+
+                    const hour = i.toString().padStart(2, '0');
+                    const minute = j.toString().padStart(2, '0');
+                    const time = `${hour}:${minute}`;
+                    
+                    const d = new Date(`1970-01-01T${time}:00`);
+                    const displayTime = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                    
+                    options += `<option value="${time}">${displayTime}</option>`;
+                }
+            }
+            return options;
+        }
+
+        // Fetch all bookings when the page loads
+        async function fetchAllBookings() {
+            try {
+                const response = await fetch('api/get_bookings.php');
+                const bookings = await response.json();
+                
+                // Process bookings into a more usable format
+                allBookings = {};
+                bookings.forEach(booking => {
+                    if (!allBookings[booking.facility_name]) {
+                        allBookings[booking.facility_name] = {};
+                    }
+                    if (!allBookings[booking.facility_name][booking.date_needed]) {
+                        allBookings[booking.facility_name][booking.date_needed] = [];
+                    }
+                    allBookings[booking.facility_name][booking.date_needed].push(booking.time_needed);
+                });
+            } catch (error) {
+                console.error('Error fetching bookings:', error);
+            }
+        }
 
         function nextStep(step) {
             if (step === 1) {
-                // Validate step 1
-                const requiredFields = document.querySelectorAll('#section-1 [required]');
-                let valid = true;
-                
-                requiredFields.forEach(field => {
-                    if (!field.value.trim()) {
-                        valid = false;
-                        field.style.borderColor = '#ef4444';
-                    } else {
-                        field.style.borderColor = '';
-                    }
-                });
-                
-                if (!valid) {
-                    alert('Please fill in all required fields.');
-                    return;
-                }
-            } else if (step === 2) {
                 // Validate step 2
                 if (selectedFacilities.length === 0) {
                     alert('Please select at least one facility.');
@@ -1035,11 +1139,28 @@ $portal_name = $GLOBALS['portal_name'];
                 
                 // Generate facility details forms
                 generateFacilityDetails();
+            } else if (step === 2) {
+                // Validate step 2 (now details)
+                const requiredFields = document.querySelectorAll('#section-2 [required]');
+                let valid = true;
+                requiredFields.forEach(field => {
+                    if (!field.value.trim()) {
+                        valid = false;
+                        field.style.borderColor = '#ef4444';
+                    } else {
+                        field.style.borderColor = '';
+                    }
+                });
+                if (!valid) {
+                    alert('Please fill in all required facility details.');
+                    return;
+                }
             }
             
             // Hide current step
             document.getElementById(`section-${currentStep}`).classList.remove('active');
             document.getElementById(`step-${currentStep}`).classList.remove('active');
+            document.getElementById(`step-${currentStep}`).classList.add('completed');
             
             // Show next step
             currentStep = step + 1;
@@ -1051,6 +1172,7 @@ $portal_name = $GLOBALS['portal_name'];
             // Hide current step
             document.getElementById(`section-${currentStep}`).classList.remove('active');
             document.getElementById(`step-${currentStep}`).classList.remove('active');
+            document.getElementById(`step-${currentStep}`).classList.remove('completed');
             
             // Show previous step
             currentStep = step - 1;
@@ -1060,6 +1182,9 @@ $portal_name = $GLOBALS['portal_name'];
         
         // Facility selection
         document.addEventListener('DOMContentLoaded', function() {
+            // Fetch bookings on page load
+            fetchAllBookings();
+
             const facilityCards = document.querySelectorAll('.facility-card');
             
             facilityCards.forEach(card => {
@@ -1077,6 +1202,7 @@ $portal_name = $GLOBALS['portal_name'];
                     }
                 });
             });
+            
             // Set minimum date to today
             const today = new Date().toISOString().split('T')[0];
             document.querySelectorAll('input[type="date"]').forEach(input => {
@@ -1089,7 +1215,7 @@ $portal_name = $GLOBALS['portal_name'];
             }
         });
         
-        // Generate facility details forms with smart time calculation
+        // Generate facility details forms with separate start and end time inputs
         function generateFacilityDetails() {
             const container = document.getElementById('facilities-container');
             container.innerHTML = '';
@@ -1107,17 +1233,23 @@ $portal_name = $GLOBALS['portal_name'];
                     <div class="form-row">
                         <div class="form-group">
                             <label>Date Needed *</label>
-                            <input type="date" name="dates[]" class="detail-date" required>
+                            <input type="date" name="dates[]" class="detail-date" required onchange="updateAvailableTimes(this)">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Start Time *</label>
+                            <select name="start_times[]" class="detail-start-time" required onchange="calculateHoursFromTime(this)"></select>
                         </div>
                         <div class="form-group">
-                            <label>Time Needed (e.g., 8-9 or 8:00-17:00) *</label>
-                            <input type="text" name="times[]" class="detail-time" placeholder="8-9 or 8:00-17:00" required onblur="calculateHours(this)">
+                            <label>End Time *</label>
+                            <select name="end_times[]" class="detail-end-time" required onchange="calculateHoursFromTime(this)"></select>
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
                             <label>Total Hours *</label>
-                            <input type="number" name="hours[]" class="detail-hours" step="0.5" min="0.5" placeholder="Auto-calculated" readonly>
+                            <input type="number" name="hours[]" class="detail-hours" step="0.5" min="0.5" placeholder="Auto-calculated" readonly required>
                         </div>
                         <div class="form-group">
                             <label>Total Number of Participants *</label>
@@ -1132,6 +1264,12 @@ $portal_name = $GLOBALS['portal_name'];
                 `;
                 container.appendChild(facilityItem);
             });
+
+            const timeOptions = generateTimeOptions();
+            document.querySelectorAll('.detail-start-time, .detail-end-time').forEach(select => {
+                select.innerHTML = timeOptions;
+            });
+
         }
         
         function removeFacility(facility) {
@@ -1148,71 +1286,77 @@ $portal_name = $GLOBALS['portal_name'];
             generateFacilityDetails();
         }
 
-        // SMART TIME CALCULATION FUNCTION
-        function calculateHours(timeInput) {
-            const timeValue = timeInput.value.trim();
-            const hoursInput = timeInput.closest('.facility-details').querySelector('.detail-hours');
+        function updateAvailableTimes(dateInput) {
+            const facilityDetails = dateInput.closest('.facility-details');
+            const facilityName = facilityDetails.querySelector('input[name="facilities[]"]').value;
+            const selectedDate = dateInput.value;
+            const startTimeSelect = facilityDetails.querySelector('.detail-start-time');
+            const endTimeSelect = facilityDetails.querySelector('.detail-end-time');
+
+            // Reset all options to be enabled
+            [...startTimeSelect.options, ...endTimeSelect.options].forEach(opt => opt.disabled = false);
+
+            if (!selectedDate || !allBookings[facilityName] || !allBookings[facilityName][selectedDate]) {
+                return; // No bookings for this facility on this day
+            }
+
+            const bookedRanges = allBookings[facilityName][selectedDate].map(timeRange => {
+                const [start, end] = timeRange.split(' to ');
+                return { start, end };
+            });
+
+            function isTimeBooked(time) {
+                for (const range of bookedRanges) {
+                    // A time slot is considered booked if it's within a booked range (exclusive of the end time)
+                    if (time >= range.start && time < range.end) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            [...startTimeSelect.options, ...endTimeSelect.options].forEach(option => {
+                if (option.value && isTimeBooked(option.value)) {
+                    option.disabled = true;
+                    option.textContent = `${option.text} (Booked)`;
+                } else if (option.value) {
+                    // Reset text content if it was previously marked as booked
+                    option.textContent = option.text.replace(' (Booked)', '');
+                }
+            });
+        }
+
+        // IMPROVED TIME CALCULATION FUNCTION with separate start/end times
+        function calculateHoursFromTime(timeInput) {
+            const facilityDetails = timeInput.closest('.facility-details');
+            const startTimeInput = facilityDetails.querySelector('.detail-start-time');
+            const endTimeInput = facilityDetails.querySelector('.detail-end-time');
+            const hoursInput = facilityDetails.querySelector('.detail-hours');
+            const dateInput = facilityDetails.querySelector('.detail-date');
             
-            if (!timeValue) {
+            if (!startTimeInput.value || !endTimeInput.value || !dateInput.value) {
                 hoursInput.value = '';
                 return;
             }
             
-            // Handle formats like: 8-9, 8:00-17:00, 8am-5pm, etc.
-            const timeRegex = /(\d{1,2})(?::(\d{2}))?\s*([ap]m)?\s*-\s*(\d{1,2})(?::(\d{2}))?\s*([ap]m)?/i;
-            const match = timeValue.match(timeRegex);
+            // Create date objects with the selected date
+            const startDateTime = new Date(`${dateInput.value}T${startTimeInput.value}`);
+            const endDateTime = new Date(`${dateInput.value}T${endTimeInput.value}`);
             
-            if (!match) {
-                // If simple format like "8-9"
-                const simpleMatch = timeValue.match(/(\d{1,2})\s*-\s*(\d{1,2})/);
-                if (simpleMatch) {
-                    const start = parseInt(simpleMatch[1]);
-                    const end = parseInt(simpleMatch[2]);
-                    let hours = end - start;
-                    
-                    // Handle cases like 8-12 (4 hours), 1-5 (4 hours)
-                    if (hours > 0) {
-                        hoursInput.value = hours;
-                        return;
-                    }
-                }
-                alert('Please enter time in format: 8-9 or 8:00-17:00');
-                return;
+            // Handle overnight events (if end time is before start time, assume next day)
+            if (endDateTime <= startDateTime) {
+                endDateTime.setDate(endDateTime.getDate() + 1);
             }
             
-            // Parse the time components
-            let startHour = parseInt(match[1]);
-            let startMinute = match[2] ? parseInt(match[2]) : 0;
-            let startPeriod = match[3] ? match[3].toLowerCase() : '';
-            
-            let endHour = parseInt(match[4]);
-            let endMinute = match[5] ? parseInt(match[5]) : 0;
-            let endPeriod = match[6] ? match[6].toLowerCase() : '';
-            
-            // Convert to 24-hour format if periods are specified
-            if (startPeriod === 'pm' && startHour < 12) startHour += 12;
-            if (startPeriod === 'am' && startHour === 12) startHour = 0;
-            
-            if (endPeriod === 'pm' && endHour < 12) endHour += 12;
-            if (endPeriod === 'am' && endHour === 12) endHour = 0;
-            
-            // Calculate total hours
-            const startTotalMinutes = startHour * 60 + startMinute;
-            const endTotalMinutes = endHour * 60 + endMinute;
-            
-            let totalMinutes = endTotalMinutes - startTotalMinutes;
-            
-            if (totalMinutes < 0) {
-                totalMinutes += 24 * 60; // Handle overnight
-            }
-            
-            const totalHours = totalMinutes / 60;
+            // Calculate difference in hours
+            const diffMs = endDateTime - startDateTime;
+            const totalHours = diffMs / (1000 * 60 * 60);
             
             if (totalHours > 0) {
                 hoursInput.value = Math.round(totalHours * 2) / 2; // Round to nearest 0.5
             } else {
-                alert('Invalid time range. End time must be after start time.');
                 hoursInput.value = '';
+                alert('End time must be after start time.');
             }
         }
 
@@ -1237,6 +1381,14 @@ $portal_name = $GLOBALS['portal_name'];
 
             facilities.forEach((item, index) => {
                 const formattedDate = item.date ? new Date(item.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A';
+                
+                // Ensure AM/PM format for start and end times
+                const startTime = item.start_time 
+                    ? new Date(`1970-01-01T${item.start_time}:00`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) 
+                    : 'N/A';
+                const endTime = item.end_time 
+                    ? new Date(`1970-01-01T${item.end_time}:00`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) 
+                    : 'N/A';
 
                 const detailBlock = document.createElement('div');
                 detailBlock.style.border = '1px solid #ddd';
@@ -1254,7 +1406,7 @@ $portal_name = $GLOBALS['portal_name'];
                         </div>
                         <div style="width: 50%; margin-bottom: 10px;">
                             <p style="font-size: 11px; color: #555; margin-bottom: 2px;">TIME NEEDED</p>
-                            <p style="font-weight: 600;">${item.time || 'N/A'}</p>
+                            <p style="font-weight: 600;">${startTime} to ${endTime}</p>
                         </div>
                         <div style="width: 50%; padding-right: 15px; margin-bottom: 10px;">
                             <p style="font-size: 11px; color: #555; margin-bottom: 2px;">TOTAL HOURS</p>
@@ -1273,7 +1425,7 @@ $portal_name = $GLOBALS['portal_name'];
                 printFacilityContainer.appendChild(detailBlock);
             });
         }
-        
+
         function printForm() {
             if (typeof submittedData !== 'undefined' && submittedData.facilities.length > 0) {
                 preparePrintForm(submittedData, controlNumber);
@@ -1296,7 +1448,8 @@ $portal_name = $GLOBALS['portal_name'];
                 const facilities = Array.from(liveFacilityDetails).map((item, index) => ({
                     name: item.querySelector('input[name="facilities[]"]').value,
                     date: item.querySelector('.detail-date').value,
-                    time: item.querySelector('.detail-time').value,
+                    start_time: item.querySelector('.detail-start-time').value,
+                    end_time: item.querySelector('.detail-end-time').value,
                     hours: item.querySelector('.detail-hours').value,
                     participants: item.querySelector('.detail-participants').value,
                     remarks: item.querySelector('.detail-remarks').value,
@@ -1305,9 +1458,9 @@ $portal_name = $GLOBALS['portal_name'];
                 const liveData = { requestor: requestor, facilities: facilities };
                 const tempControl = document.querySelector('#request-form').getAttribute('data-control') || 'N/A-Draft';
                 
-                let allDetailsValid = facilities.every(f => f.date && f.time && f.hours && f.participants);
+                let allDetailsValid = facilities.every(f => f.date && f.start_time && f.end_time && f.hours && f.participants);
                 if (!allDetailsValid) {
-                    alert("Please fill in all required facility details (Date, Time, Hours, Participants) before printing a draft.");
+                    alert("Please fill in all required facility details (Date, Start Time, End Time, Hours, Participants) before printing a draft.");
                     return;
                 }
                 

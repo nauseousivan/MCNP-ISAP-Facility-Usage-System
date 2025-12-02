@@ -31,6 +31,24 @@ $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $user = $stmt->get_result()->fetch_assoc();
 
+// Get user preferences for border
+$border_options = [
+    'color' => '#e5e7eb', // Default border color from your CSS
+    'width' => 2,
+    'style' => 'solid'
+];
+$pref_sql = "SELECT profile_border_color, profile_border_width, profile_border_style FROM user_preferences WHERE user_id = ?";
+$pref_stmt = $conn->prepare($pref_sql);
+$pref_stmt->bind_param("i", $user_id);
+$pref_stmt->execute();
+$pref_result = $pref_stmt->get_result();
+if ($pref_result->num_rows > 0) {
+    $prefs = $pref_result->fetch_assoc();
+    $border_options['color'] = $prefs['profile_border_color'] ?? $border_options['color'];
+    $border_options['width'] = $prefs['profile_border_width'] ?? $border_options['width'];
+    $border_options['style'] = $prefs['profile_border_style'] ?? $border_options['style'];
+}
+
 $logo_file = $GLOBALS['logo_file'];
 $department_lower = strtolower($user['department']);
 if (strpos($department_lower, 'international') !== false) {
@@ -64,7 +82,8 @@ $stats_sql = "SELECT
     COUNT(*) as total,
     SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
     SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
-    SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected
+    SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
+    SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled
     FROM facility_requests WHERE user_id = ?";
 $stmt = $conn->prepare($stats_sql);
 $stmt->bind_param("i", $user_id);
@@ -73,9 +92,18 @@ $stats = $stmt->get_result()->fetch_assoc();
 
 // Get theme from session or default to 'light'
 $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
+
+// Determine department theme for styling
+$department_theme_class = '';
+$department_lower_for_color = strtolower($user['department']);
+if (strpos($department_lower_for_color, 'medical') !== false) {
+    $department_theme_class = 'theme-medical';
+} elseif (strpos($department_lower_for_color, 'international') !== false) {
+    $department_theme_class = 'theme-isap';
+}
 ?>
 <!DOCTYPE html>
-<html lang="en" data-theme="<?php echo htmlspecialchars($theme); ?>">
+<html lang="en" data-theme="<?php echo htmlspecialchars($theme); ?>" class="<?php echo htmlspecialchars($department_theme_class); ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -88,10 +116,10 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
     }
     
     :root {
-        --bg-primary: #ffffff;
-        --bg-secondary: #f8f9fa;
+        --bg-primary: #ffffff; /* Card and Header background */
+        --bg-secondary: #fdfaf6; /* Main page background */
         --text-primary: #1a1a1a;
-        --text-secondary: #6b7280;
+        --text-secondary: #71717a;
         --border-color: #e5e7eb;
         --accent-color: #6366f1;
         --card-bg: #ffffff;
@@ -99,18 +127,71 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
     }
 
     [data-theme="dark"] {
-        --bg-primary: #1a1a1a;
-        --bg-secondary: #2d2d2d;
+        --bg-primary: #171717; /* Card and Header background */
+        --bg-secondary: #0a0a0a; /* Main page background */
         --text-primary: #ffffff;
         --text-secondary: #9ca3af;
         --border-color: #404040;
         --accent-color: #818cf8;
-        --card-bg: #2d2d2d;
-        --header-bg: #1a1a1a;
+        --card-bg: #171717;
+        --header-bg: #171717;
+    }
+
+    @font-face {
+        font-family: 'Geist Sans';
+        src: url('node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2') format('woff2');
+        font-weight: 100 900;
+        font-style: normal;
+    }
+    /* New Theme Palettes */
+    [data-theme="blue"] {
+        --bg-primary: #ffffff;
+        --bg-secondary: #f0f9ff; /* sky-50 */
+        --text-primary: #0c4a6e; /* sky-900 */
+        --text-secondary: #38bdf8; /* sky-400 */
+        --border-color: #e0f2fe; /* sky-100 */
+        --accent-color: #0ea5e9; /* sky-500 */
+    }
+
+    [data-theme="pink"] {
+        --bg-primary: #ffffff;
+        --bg-secondary: #fdf2f8; /* pink-50 */
+        --text-primary: #831843; /* pink-900 */
+        --text-secondary: #f472b6; /* pink-400 */
+        --border-color: #fce7f3; /* pink-100 */
+        --accent-color: #ec4899; /* pink-500 */
+    }
+
+    [data-theme="green"] {
+        --bg-primary: #ffffff;
+        --bg-secondary: #f0fdf4; /* green-50 */
+        --text-primary: #14532d; /* green-900 */
+        --text-secondary: #4ade80; /* green-400 */
+        --border-color: #dcfce7; /* green-100 */
+        --accent-color: #22c55e; /* green-500 */
+    }
+
+    [data-theme="purple"] {
+        --bg-primary: #ffffff;
+        --bg-secondary: #f5f3ff; /* violet-50 */
+        --text-primary: #4c1d95; /* violet-900 */
+        --text-secondary: #a78bfa; /* violet-400 */
+        --border-color: #ede9fe; /* violet-100 */
+        --accent-color: #8b5cf6; /* violet-500 */
+    }
+
+    /* Department-specific icon colors */
+    .theme-medical .action-card-icon svg,
+    .theme-medical .section-header svg {
+        color: #3b82f6;
+    }
+    .theme-isap .action-card-icon svg,
+    .theme-isap .section-header svg {
+        color: #ef4444;
     }
     
     body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-family: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         background: var(--bg-secondary);
         color: var(--text-primary);
         transition: background 0.3s, color 0.3s;
@@ -125,6 +206,9 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         justify-content: space-between;
         align-items: center;
         transition: background 0.3s;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
     }
     
     .header-logo {
@@ -204,6 +288,10 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         background: var(--bg-secondary);
     }
     
+    .btn-scan:hover {
+        background: var(--border-color);
+    }
+
     /* Notification button styles */
     .btn-notification {
         position: relative;
@@ -229,6 +317,21 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         color: var(--text-primary);
     }
     
+    /* New Overlay for mobile dropdowns */
+    .mobile-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.4);
+        z-index: 999;
+    }
+    .mobile-overlay.show {
+        display: block;
+    }
+
     .notification-badge {
         position: absolute;
         top: -4px;
@@ -399,26 +502,26 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
     /* Action cards grid matching reference image */
     .action-cards {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        grid-template-columns: repeat(4, 1fr);
         gap: 20px;
         margin-bottom: 40px;
     }
     
     .action-card {
         background: var(--card-bg);
-        border-radius: 12px;
+        border-radius: 20px;
         padding: 32px 24px;
         text-align: center;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.03);
         text-decoration: none;
-        transition: all 0.2s;
+        transition: all 0.3s;
         cursor: pointer;
         border: 1px solid var(--border-color);
     }
     
     .action-card:hover {
         transform: translateY(-4px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.07);
     }
     
     .action-card-icon {
@@ -459,10 +562,11 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
     
     .section-card {
         background: var(--card-bg);
-        border-radius: 12px;
+        border-radius: 20px;
         padding: 24px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.03);
         border: 1px solid var(--border-color);
+        transition: all 0.3s;
     }
     
     .section-header {
@@ -564,6 +668,14 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         background: #fee2e2;
         color: #991b1b;
     }
+    .status-badge.cancelled {
+        background: #e5e7eb;
+        color: #4b5563;
+    }
+    .status-badge.cancelled {
+        background: #e5e7eb;
+        color: #4b5563;
+    }
     
     .btn-view {
         padding: 6px 12px;
@@ -598,10 +710,11 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
     /* Stats card matching reference design */
     .stats-card {
         background: var(--card-bg);
-        border-radius: 12px;
+        border-radius: 20px;
         padding: 24px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.03);
         border: 1px solid var(--border-color);
+        transition: all 0.3s;
     }
     
     .stats-card h2 {
@@ -647,6 +760,9 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
     
     .stats-list .value.rejected {
         color: #ef4444;
+    }
+    .stats-list .value.cancelled {
+        color: var(--text-secondary);
     }
     
     .empty-state {
@@ -801,6 +917,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         .stats-list .value {
             font-size: 18px;
         }
+        .notification-dropdown { max-height: 450px; }
         
         .notification-dropdown {
             right: 16px;
@@ -811,7 +928,8 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
     
     @media (max-width: 480px) {
         .action-cards {
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(2, 1fr); /* Explicitly 2 columns for small mobile */
+            gap: 12px;
         }
         
         .action-card {
@@ -888,6 +1006,52 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
     body {
         overflow-x: hidden;
     }
+
+    /* QR Scanner Modal Styles */
+    #qrScannerModal {
+        display: none;
+        position: fixed;
+        z-index: 1001;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.7);
+        backdrop-filter: blur(5px);
+        justify-content: center;
+        align-items: center;
+    }
+    #qrScannerModal.show {
+        display: flex;
+    }
+    .qr-scanner-content {
+        background: var(--card-bg);
+        padding: 20px;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 500px;
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    #qr-reader {
+        width: 100%;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 2px solid var(--border-color);
+        margin-bottom: 16px;
+    }
+    #qrScannerModal button {
+        padding: 10px 20px;
+        border-radius: 8px;
+        border: none;
+        background: var(--text-secondary);
+        color: var(--bg-primary);
+        cursor: pointer;
+        font-weight: 500;
+    }
+    #qrScannerModal button:hover {
+        opacity: 0.8;
+    }
 </style>
 </head>
 <body>
@@ -900,8 +1064,15 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             </div>
         </div>
         <div class="header-actions">
-            <a href="profile.php" class="profile-button" title="View Profile" style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; border: 2px solid #e5e7eb; transition: all 0.2s; display: block;">
-                <img src="<?php echo htmlspecialchars($profile_picture); ?>" alt="Profile" style="width: 100%; height: 100%; object-fit: cover;">
+            <a href="profile.php" class="profile-button" title="View Profile" style="
+                width: 40px; 
+                height: 40px; 
+                border-radius: 50%; 
+                overflow: hidden; 
+                border: <?php echo $border_options['width']; ?>px <?php echo $border_options['style']; ?> <?php echo htmlspecialchars($border_options['color']); ?>; 
+                transition: all 0.2s; 
+                display: block;">
+                <img src="<?php echo htmlspecialchars($profile_picture); ?>" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
             </a>
             <button class="btn-notification" onclick="toggleNotifications()">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -924,6 +1095,9 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             </a>
         </div>
     </header>
+
+    <!-- Mobile Overlay for dropdowns -->
+    <div class="mobile-overlay" id="mobileOverlay" onclick="closeAllDropdowns()"></div>
 
     <div class="notification-dropdown" id="notificationDropdown">
         <div class="notification-header">
@@ -978,16 +1152,27 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
                 <h3>Calendar</h3>
                 <p>View schedule</p>
             </a>
-            
-            <a href="profile.php" class="action-card">
+
+            <!-- Transportation Card -->
+            <a href="transportation.php" class="action-card">
                 <div class="action-card-icon">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bus">
+                        <path d="M8 6v6"/>
+                        <path d="M15 6v6"/>
+                        <path d="M2 12h19.6"/>
+                        <path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/>
+                        <circle cx="7" cy="18" r="2"/>
+                        <path d="M9 18h5"/>
+                        <circle cx="16" cy="18" r="2"/>
                     </svg>
                 </div>
-                <h3>Profile</h3>
-                <p>Manage account</p>
+                <h3>Transportation</h3>
+                <p>Request vehicle</p>
+                <div style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);">
+                    Available: <strong><?php echo getAvailableVehicles($conn); ?></strong>
+                </div>
             </a>
+
         </div>
 
         <div class="content-grid">
@@ -1101,6 +1286,10 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
                     <span class="label">Rejected</span>
                     <span class="value rejected"><?php echo $stats['rejected']; ?></span>
                 </li>
+                <li>
+                    <span class="label">Cancelled</span>
+                    <span class="value cancelled"><?php echo $stats['cancelled'] ?? 0; ?></span>
+                </li>
             </ul>
         </div>
     </div>
@@ -1117,13 +1306,16 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         
         function toggleNotifications() {
             const dropdown = document.getElementById('notificationDropdown');
+            const overlay = document.getElementById('mobileOverlay');
             notificationsOpen = !notificationsOpen;
             
             if (notificationsOpen) {
                 dropdown.classList.add('show');
                 loadNotifications();
+                if (window.innerWidth <= 768) overlay.classList.add('show');
             } else {
                 dropdown.classList.remove('show');
+                overlay.classList.remove('show');
             }
         }
         
@@ -1222,12 +1414,19 @@ async function handleNotificationClick(notificationId, actionUrl) {
             return date.toLocaleDateString();
         }
         
+        function closeAllDropdowns() {
+            if (notificationsOpen) {
+                toggleNotifications();
+            }
+        }
+
         // Close dropdown when clicking outside
         document.addEventListener('click', function(event) {
             const dropdown = document.getElementById('notificationDropdown');
             const button = document.querySelector('.btn-notification');
+            const overlay = document.getElementById('mobileOverlay');
             
-            if (notificationsOpen && !dropdown.contains(event.target) && !button.contains(event.target)) {
+            if (notificationsOpen && !dropdown.contains(event.target) && !button.contains(event.target) && event.target !== overlay) {
                 toggleNotifications();
             }
         });

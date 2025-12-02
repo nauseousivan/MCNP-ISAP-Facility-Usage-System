@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../config.php';
+require_once '../functions.php';
 
 // Check if user is admin
 if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'Admin') {
@@ -12,6 +13,9 @@ $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
 // Get theme preference
 $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
+
+// Get search term
+$search = $_GET['search'] ?? '';
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -40,6 +44,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if ($stmt->execute()) {
             $_SESSION['success'] = "Facility added successfully";
+            // Log this action
+            $details = "Admin {$_SESSION['user_name']} added a new facility: {$name}.";
+            log_admin_action($conn, $_SESSION['user_id'], $_SESSION['user_name'], 'facility_added', null, null, $details);
         } else {
             $_SESSION['error'] = "Error adding facility: " . $conn->error;
         }
@@ -47,10 +54,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header("Location: facility_management.php");
         exit();
     }
+
+    if (isset($_POST['edit_facility'])) {
+        $facility_id = $_POST['facility_id'];
+        $name = trim($_POST['name']);
+        $capacity = trim($_POST['capacity']);
+        $description = trim($_POST['description']);
+        $amenities = json_encode(array_map('trim', explode(',', $_POST['amenities'])));
+
+        // Get current image path
+        $stmt = $conn->prepare("SELECT image_path FROM facilities WHERE id = ?");
+        $stmt->bind_param("i", $facility_id);
+        $stmt->execute();
+        $image_path = $stmt->get_result()->fetch_assoc()['image_path'] ?? 'img/default-facility.jpg';
+
+        // Handle new image upload
+        if (isset($_FILES['image']) && $_FILES['image']['error'] === 0 && $_FILES['image']['size'] > 0) {
+            $upload_dir = '../img/';
+            $file_extension = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
+            $filename = uniqid() . '.' . $file_extension;
+            $target_path = $upload_dir . $filename;
+            
+            if (move_uploaded_file($_FILES['image']['tmp_name'], $target_path)) {
+                $image_path = 'img/' . $filename;
+            }
+        }
+
+        $sql = "UPDATE facilities SET name = ?, capacity = ?, description = ?, amenities = ?, image_path = ? WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("sssssi", $name, $capacity, $description, $amenities, $image_path, $facility_id);
+        if ($stmt->execute()) {
+            $_SESSION['success'] = "Facility updated successfully";
+            $details = "Admin {$_SESSION['user_name']} updated facility: {$name} (ID: {$facility_id}).";
+            log_admin_action($conn, $_SESSION['user_id'], $_SESSION['user_name'], 'facility_updated', null, null, $details);
+        } else {
+            $_SESSION['error'] = "Error updating facility: " . $conn->error;
+        }
+        header("Location: facility_management.php");
+        exit();
+    }
     
     if (isset($_POST['delete_facility'])) {
         $facility_id = $_POST['facility_id'];
         
+        // Get facility name for logging
+        $name_stmt = $conn->prepare("SELECT name FROM facilities WHERE id = ?");
+        $name_stmt->bind_param("i", $facility_id);
+        $name_stmt->execute();
+        $facility_name = $name_stmt->get_result()->fetch_assoc()['name'] ?? 'N/A';
+
         // Soft delete (set is_active to FALSE)
         $sql = "UPDATE facilities SET is_active = FALSE WHERE id = ?";
         $stmt = $conn->prepare($sql);
@@ -58,8 +110,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if ($stmt->execute()) {
             $_SESSION['success'] = "Facility deleted successfully";
+            $details = "Admin {$_SESSION['user_name']} deactivated facility: {$facility_name} (ID: {$facility_id}).";
+            log_admin_action($conn, $_SESSION['user_id'], $_SESSION['user_name'], 'facility_deactivated', null, null, $details);
         } else {
             $_SESSION['error'] = "Error deleting facility: " . $conn->error;
+        }
+        
+        header("Location: facility_management.php");
+        exit();
+    }
+
+    if (isset($_POST['restore_facility'])) {
+        $facility_id = $_POST['facility_id'];
+        
+        // Get facility name for logging
+        $name_stmt = $conn->prepare("SELECT name FROM facilities WHERE id = ?");
+        $name_stmt->bind_param("i", $facility_id);
+        $name_stmt->execute();
+        $facility_name = $name_stmt->get_result()->fetch_assoc()['name'] ?? 'N/A';
+
+        // Restore by setting is_active to TRUE
+        $sql = "UPDATE facilities SET is_active = TRUE WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("i", $facility_id);
+        
+        if ($stmt->execute()) {
+            $_SESSION['success'] = "Facility restored successfully";
+            $details = "Admin {$_SESSION['user_name']} restored facility: {$facility_name} (ID: {$facility_id}).";
+            log_admin_action($conn, $_SESSION['user_id'], $_SESSION['user_name'], 'facility_restored', null, null, $details);
+        } else {
+            $_SESSION['error'] = "Error restoring facility: " . $conn->error;
         }
         
         header("Location: facility_management.php");
@@ -69,12 +149,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Get all facilities
 $facilities = [];
-$sql = "SELECT * FROM facilities ORDER BY is_active DESC, name";
-$result = $conn->query($sql);
-if ($result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
-        $facilities[] = $row;
-    }
+$sql = "SELECT * FROM facilities WHERE 1=1";
+$params = [];
+$types = "";
+
+if ($search) {
+    $sql .= " AND (name LIKE ? OR capacity LIKE ? OR amenities LIKE ?)";
+    $search_param = "%$search%";
+    $params = [$search_param, $search_param, $search_param];
+    $types = "sss";
+}
+
+$sql .= " ORDER BY is_active DESC, name";
+
+$stmt = $conn->prepare($sql);
+if ($search) $stmt->bind_param($types, ...$params);
+$stmt->execute();
+$result = $stmt->get_result();
+while ($row = $result->fetch_assoc()) {
+    $facilities[] = $row;
 }
 ?>
 <!DOCTYPE html>
@@ -91,12 +184,12 @@ if ($result->num_rows > 0) {
         }
         
         :root {
-            --background: #ffffff;
+            --background: #fdfaf6;
             --foreground: #0a0a0a;
             --card: #ffffff;
             --card-foreground: #0a0a0a;
-            --muted: #f5f5f5;
-            --muted-foreground: #737373;
+            --muted: #f8f5f1;
+            --muted-foreground: #71717a;
             --border: #e5e5e5;
             --primary: #0a0a0a;
             --primary-foreground: #fafafa;
@@ -107,7 +200,7 @@ if ($result->num_rows > 0) {
             --success: #22c55e;
             --warning: #f59e0b;
             --danger: #ef4444;
-            --sidebar: #fafafa;
+            --sidebar: #ffffff;
             --sidebar-foreground: #0a0a0a;
             --sidebar-border: #e5e5e5;
         }
@@ -126,13 +219,20 @@ if ($result->num_rows > 0) {
             --secondary-foreground: #fafafa;
             --accent: #262626;
             --accent-foreground: #fafafa;
-            --sidebar: #171717;
+            --sidebar: #0a0a0a;
             --sidebar-foreground: #fafafa;
             --sidebar-border: #262626;
         }
         
+        @font-face {
+            font-family: 'Geist Sans';
+            src: url('../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2') format('woff2');
+            font-weight: 100 900;
+            font-style: normal;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-family: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background: var(--background);
             color: var(--foreground);
             display: flex;
@@ -184,7 +284,7 @@ if ($result->num_rows > 0) {
             padding: 10px 12px;
             color: var(--muted-foreground);
             text-decoration: none;
-            border-radius: 8px;
+            border-radius: 12px;
             transition: all 0.2s;
             font-size: 14px;
             font-weight: 500;
@@ -344,11 +444,12 @@ if ($result->num_rows > 0) {
             background: var(--card);
             margin: 5% auto;
             padding: 0;
-            border-radius: 12px;
+            border-radius: 20px;
             max-width: 600px;
             width: 90%;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             border: 1px solid var(--border);
+            overflow: hidden;
         }
         
         .modal-header {
@@ -425,54 +526,83 @@ if ($result->num_rows > 0) {
             background: var(--danger);
             color: white;
         }
+
+        .btn-info {
+            background: var(--info);
+            color: white;
+        }
         
         .btn:hover {
             opacity: 0.9;
             transform: translateY(-1px);
         }
         
-        .facility-table {
+        /* Table styles from users.php */
+        .table {
             width: 100%;
             border-collapse: collapse;
-            background: var(--card);
-            border-radius: 12px;
-            overflow: hidden;
-            border: 1px solid var(--border);
         }
         
-        .facility-table th,
-        .facility-table td {
-            padding: 16px;
+        .table thead th {
             text-align: left;
+            padding: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--muted-foreground);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
             border-bottom: 1px solid var(--border);
         }
         
-        .facility-table th {
+        .table tbody td {
+            padding: 16px 12px;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+        
+        .table tbody tr:hover {
             background: var(--muted);
-            font-weight: 600;
-            color: var(--foreground);
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border); 
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+            margin-bottom: 24px;
+        }
+
+        .card-header {
+            padding-bottom: 16px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border);
         }
         
-        .status-active {
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        
+        .badge.active {
+            background: rgba(34, 197, 94, 0.1);
             color: var(--success);
-            font-weight: 600;
         }
         
-        .status-inactive {
+        .badge.inactive {
+            background: rgba(115, 115, 115, 0.1);
             color: var(--muted-foreground);
-            font-weight: 600;
         }
         
         .action-buttons {
             display: flex;
             gap: 8px;
-        }
-        
-        .alert {
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-weight: 500;
         }
         
         .alert-success {
@@ -483,6 +613,39 @@ if ($result->num_rows > 0) {
         .alert-error {
             background: var(--danger);
             color: white;
+        }
+
+        /* New Alert Styles to match users.php */
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            border: 1px solid transparent;
+        }
+        .alert.alert-success {
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--success);
+            border-color: rgba(34, 197, 94, 0.2);
+        }
+
+        /* Search box styles from users.php */
+        .search-box {
+            margin-bottom: 24px;
+        }
+
+        .search-box input {
+            width: 100%;
+            max-width: 400px;
+            padding: 10px 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            background: var(--card);
+            color: var(--foreground);
+        }
+
+        .search-box input::placeholder {
+            color: var(--muted-foreground);
         }
 
         /* Sidebar overlay for mobile */
@@ -610,7 +773,7 @@ if ($result->num_rows > 0) {
         <!-- Content -->
         <main class="content">
             <?php if (isset($_SESSION['success'])): ?>
-                <div class="alert alert-success">
+                <div class="alert alert-success" role="alert">
                     <?php 
                     echo htmlspecialchars($_SESSION['success']); 
                     unset($_SESSION['success']);
@@ -619,7 +782,7 @@ if ($result->num_rows > 0) {
             <?php endif; ?>
 
             <?php if (isset($_SESSION['error'])): ?>
-                <div class="alert alert-error">
+                <div class="alert alert-error" role="alert">
                     <?php 
                     echo htmlspecialchars($_SESSION['error']); 
                     unset($_SESSION['error']);
@@ -628,7 +791,7 @@ if ($result->num_rows > 0) {
             <?php endif; ?>
 
             <div class="management-header">
-                <h2>Manage Facilities</h2>
+                <h2>All Facilities</h2>
                 <button class="btn-add" onclick="openAddModal()">
                     <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -637,57 +800,76 @@ if ($result->num_rows > 0) {
                 </button>
             </div>
 
+            <div class="search-box">
+                <form method="GET">
+                    <input type="text" name="search" placeholder="Search by name, capacity, amenities..." value="<?php echo htmlspecialchars($search); ?>">
+                </form>
+            </div>
+
             <?php if (empty($facilities)): ?>
                 <div style="text-align: center; padding: 40px; color: var(--muted-foreground);">
                     <p>No facilities found. Add your first facility to get started.</p>
                 </div>
             <?php else: ?>
-                <table class="facility-table">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Capacity</th>
-                            <th>Status</th>
-                            <th>Amenities</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($facilities as $facility): ?>
+                <div class="card">
+                    <table class="table">
+                        <thead>
                             <tr>
-                                <td><?php echo htmlspecialchars($facility['name']); ?></td>
-                                <td><?php echo htmlspecialchars($facility['capacity']); ?></td>
-                                <td>
-                                    <span class="<?php echo $facility['is_active'] ? 'status-active' : 'status-inactive'; ?>">
-                                        <?php echo $facility['is_active'] ? 'Active' : 'Inactive'; ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <?php 
-                                    $amenities = json_decode($facility['amenities'], true);
-                                    if (is_array($amenities)) {
-                                        echo implode(', ', array_slice($amenities, 0, 2));
-                                        if (count($amenities) > 2) echo '...';
-                                    }
-                                    ?>
-                                </td>
-                                <td>
-                                    <div class="action-buttons">
-                                        <?php if ($facility['is_active']): ?>
-                                            <form method="POST" style="display: inline;">
-                                                <input type="hidden" name="facility_id" value="<?php echo $facility['id']; ?>">
-                                                <button type="submit" name="delete_facility" class="btn btn-danger" 
-                                                        onclick="return confirm('Are you sure you want to delete this facility?')">
-                                                    Delete
-                                                </button>
-                                            </form>
-                                        <?php endif; ?>
-                                    </div>
-                                </td>
+                                <th>Name</th>
+                                <th>Capacity</th>
+                                <th>Status</th>
+                                <th>Amenities</th>
+                                <th>Actions</th>
                             </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($facilities as $facility): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($facility['name']); ?></td>
+                                    <td><?php echo htmlspecialchars($facility['capacity']); ?></td>
+                                    <td>
+                                        <span class="badge <?php echo $facility['is_active'] ? 'active' : 'inactive'; ?>">
+                                            <?php echo $facility['is_active'] ? 'Active' : 'Inactive'; ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <?php 
+                                        $amenities = json_decode($facility['amenities'], true);
+                                        if (is_array($amenities)) {
+                                            echo htmlspecialchars(implode(', ', array_slice($amenities, 0, 3)));
+                                            if (count($amenities) > 3) echo '...';
+                                        }
+                                        ?>
+                                    </td>
+                                    <td>
+                                        <div class="action-buttons">
+                                            <button class="btn btn-secondary" 
+                                                    onclick='openEditModal(<?php echo json_encode($facility); ?>)'>
+                                                Edit
+                                            </button>
+                                            <?php if ($facility['is_active']): ?>
+                                                <form method="POST" style="display: inline;">
+                                                    <input type="hidden" name="facility_id" value="<?php echo $facility['id']; ?>">
+                                                    <button type="submit" name="delete_facility" class="btn btn-danger" 
+                                                            onclick="return confirm('Are you sure you want to deactivate this facility?')">
+                                                        Deactivate
+                                                    </button>
+                                                </form>
+                                            <?php else: ?>
+                                                <form method="POST" style="display: inline;">
+                                                    <input type="hidden" name="facility_id" value="<?php echo $facility['id']; ?>">
+                                                    <button type="submit" name="restore_facility" class="btn btn-primary">
+                                                        Restore
+                                                    </button>
+                                                </form>
+                                            <?php endif; ?>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
             <?php endif; ?>
         </main>
     </div>
@@ -732,6 +914,47 @@ if ($result->num_rows > 0) {
         </div>
     </div>
 
+    <!-- Edit Facility Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Facility</h3>
+                <button onclick="closeEditModal()" style="background: none; border: none; cursor: pointer;">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <form method="POST" enctype="multipart/form-data" class="modal-body">
+                <input type="hidden" name="facility_id" id="edit_facility_id">
+                <div class="form-group">
+                    <label class="form-label">Facility Name</label>
+                    <input type="text" name="name" id="edit_name" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Capacity</label>
+                    <input type="text" name="capacity" id="edit_capacity" class="form-input" placeholder="e.g., 40 students, 200 people" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea name="description" id="edit_description" class="form-input" rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Amenities (comma separated)</label>
+                    <input type="text" name="amenities" id="edit_amenities" class="form-input" placeholder="e.g., Projector, Air Conditioning, WiFi" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Facility Image (leave blank to keep current)</label>
+                    <input type="file" name="image" class="form-input" accept="image/*">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                    <button type="submit" name="edit_facility" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         function openAddModal() {
             document.getElementById('addModal').style.display = 'block';
@@ -741,11 +964,36 @@ if ($result->num_rows > 0) {
             document.getElementById('addModal').style.display = 'none';
         }
         
+        function openEditModal(facility) {
+            document.getElementById('edit_facility_id').value = facility.id;
+            document.getElementById('edit_name').value = facility.name;
+            document.getElementById('edit_capacity').value = facility.capacity;
+            document.getElementById('edit_description').value = facility.description;
+            
+            let amenities = JSON.parse(facility.amenities || '[]');
+            document.getElementById('edit_amenities').value = amenities.join(', ');
+
+            document.getElementById('editModal').style.display = 'block';
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+
+        // Auto-submit search form on input
+        const searchInput = document.querySelector('input[name="search"]');
+        if (searchInput) {
+            searchInput.addEventListener('input', () => searchInput.form.submit());
+        }
+
         // Close modal when clicking outside
         window.onclick = function(event) {
-            const modal = document.getElementById('addModal');
-            if (event.target === modal) {
+            const addModal = document.getElementById('addModal');
+            const editModal = document.getElementById('editModal');
+            if (event.target === addModal) {
                 closeAddModal();
+            } else if (event.target === editModal) {
+                closeEditModal();
             }
         }
         

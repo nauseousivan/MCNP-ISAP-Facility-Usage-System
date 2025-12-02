@@ -22,9 +22,16 @@ $request_id = $_GET['id'];
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $action = $_POST['action'];
     $admin_notes = $_POST['admin_notes'] ?? '';
-    
-    $status = ($action === 'approve') ? 'approved' : 'rejected';
-    
+
+    if ($action === 'approve') {
+        $status = 'approved';
+    } elseif ($action === 'reject') {
+        $status = 'rejected';
+    } else { // 'cancel'
+        $status = 'cancelled';
+        $admin_notes = 'Request cancelled by administrator.';
+    }
+
     $sql = "UPDATE facility_requests SET status = ?, admin_notes = ? WHERE id = ?";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("ssi", $status, $admin_notes, $request_id);
@@ -73,12 +80,12 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         }
         
         :root {
-            --background: #ffffff;
+            --background: #fdfaf6;
             --foreground: #0a0a0a;
             --card: #ffffff;
             --card-foreground: #0a0a0a;
-            --muted: #f5f5f5;
-            --muted-foreground: #737373;
+            --muted: #f8f5f1;
+            --muted-foreground: #71717a;
             --border: #e5e5e5;
             --primary: #0a0a0a;
             --primary-foreground: #fafafa;
@@ -89,7 +96,7 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             --success: #22c55e;
             --warning: #f59e0b;
             --danger: #ef4444;
-            --sidebar: #fafafa;
+            --sidebar: #ffffff;
             --sidebar-foreground: #0a0a0a;
             --sidebar-border: #e5e5e5;
         }
@@ -108,13 +115,20 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             --secondary-foreground: #fafafa;
             --accent: #262626;
             --accent-foreground: #fafafa;
-            --sidebar: #171717;
+            --sidebar: #0a0a0a;
             --sidebar-foreground: #fafafa;
             --sidebar-border: #262626;
         }
         
+        @font-face {
+            font-family: 'Geist Sans';
+            src: url('../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2') format('woff2');
+            font-weight: 100 900;
+            font-style: normal;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-family: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background: var(--background);
             color: var(--foreground);
             display: flex;
@@ -165,7 +179,7 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             padding: 10px 12px;
             color: var(--muted-foreground);
             text-decoration: none;
-            border-radius: 8px;
+            border-radius: 12px;
             transition: all 0.2s;
             font-size: 14px;
             font-weight: 500;
@@ -301,8 +315,9 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         .card {
             background: var(--card);
             border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: 20px;
             padding: 24px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
             margin-bottom: 24px;
             transition: background-color 0.3s, border-color 0.3s;
         }
@@ -370,6 +385,10 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         .badge.rejected {
             background: rgba(239, 68, 68, 0.1);
             color: var(--danger);
+        }
+        .badge.cancelled {
+            background: var(--muted);
+            color: var(--muted-foreground);
         }
         
         /* Facility Item */
@@ -450,6 +469,11 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         
         .btn-reject {
             background: var(--danger);
+            color: white;
+        }
+        
+        .btn-cancel {
+            background: var(--warning);
             color: white;
         }
         
@@ -742,19 +766,22 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             </div>
 
             <!-- Action Form -->
-            <?php if ($request['status'] === 'pending'): ?>
+            <?php if (in_array($request['status'], ['pending', 'approved'])): ?>
             <div class="card">
                 <div class="card-header">
                     <h2 class="card-title">Take Action</h2>
                 </div>
                 <form method="POST" class="action-form">
                     <div class="form-group">
-                        <label>Admin Notes</label>
+                        <label>Admin Notes (Optional)</label>
                         <textarea name="admin_notes" placeholder="Add notes about this decision..."></textarea>
                     </div>
                     <div class="action-buttons">
-                        <button type="submit" name="action" value="approve" class="btn btn-approve">Approve Request</button>
-                        <button type="submit" name="action" value="reject" class="btn btn-reject">Reject Request</button>
+                        <?php if ($request['status'] === 'pending'): ?>
+                            <button type="submit" name="action" value="approve" class="btn btn-approve">Approve Request</button>
+                            <button type="submit" name="action" value="reject" class="btn btn-reject" onclick="return confirm('Are you sure you want to reject this request? Any notes you have entered will be sent to the user.')">Reject Request</button>
+                        <?php endif; ?>
+                        <button type="submit" name="action" value="cancel" class="btn btn-cancel" onclick="return confirm('Are you sure you want to CANCEL this request? This action cannot be undone.')">Cancel Request</button>
                     </div>
                 </form>
             </div>

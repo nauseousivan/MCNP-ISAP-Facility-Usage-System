@@ -17,7 +17,7 @@ $_SESSION['splash_seen'] = true;
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #ffffff 0%, #f0eef2 100%);
+            background: #fdfaf6; /* A beige color to match the main app background */
             min-height: 100vh;
             display: flex;
             align-items: center;

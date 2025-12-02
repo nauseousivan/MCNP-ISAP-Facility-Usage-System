@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 session_start();
 require_once '../config.php';
 
@@ -10,30 +10,36 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'Admin') {
 
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
-// Get facility usage statistics
-// Get facilities from database for statistics
-$facilities_list = [];
-$sql = "SELECT name FROM facilities WHERE is_active = TRUE ORDER BY name";
-$result = $conn->query($sql);
-if ($result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
-        $facilities_list[] = $row['name'];
+/**
+ * Fetches facility usage statistics from the database.
+ *
+ * @param mysqli $conn The database connection.
+ * @return array An associative array of facility stats.
+ */
+function getFacilityStats(mysqli $conn): array
+{
+    $facility_stats = [];
+    $sql = "SELECT 
+                f.name,
+                COUNT(frd.id) as total_bookings,
+                SUM(CASE WHEN fr.status = 'approved' THEN 1 ELSE 0 END) as approved_bookings
+            FROM facilities f
+            LEFT JOIN facility_request_details frd ON f.name = frd.facility_name
+            LEFT JOIN facility_requests fr ON frd.request_id = fr.id
+            WHERE f.is_active = TRUE
+            GROUP BY f.name
+            ORDER BY f.name";
+
+    $result = $conn->query($sql);
+    if ($result) {
+        while ($row = $result->fetch_assoc()) {
+            $facility_stats[$row['name']] = $row;
+        }
     }
+    return $facility_stats;
 }
 
-$facility_stats = [];
-foreach ($facilities_list as $facility) {
-    $sql = "SELECT COUNT(*) as total_bookings,
-            SUM(CASE WHEN fr.status = 'approved' THEN 1 ELSE 0 END) as approved_bookings
-            FROM facility_request_details frd
-            JOIN facility_requests fr ON frd.request_id = fr.id
-            WHERE frd.facility_name = ?";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("s", $facility);
-    $stmt->execute();
-    $result = $stmt->get_result()->fetch_assoc();
-    $facility_stats[$facility] = $result;
-}
+$facility_stats = getFacilityStats($conn);
 
 // Get theme preference
 $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
@@ -52,12 +58,12 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         }
         
         :root {
-            --background: #ffffff;
+            --background: #fdfaf6;
             --foreground: #0a0a0a;
             --card: #ffffff;
             --card-foreground: #0a0a0a;
-            --muted: #f5f5f5;
-            --muted-foreground: #737373;
+            --muted: #f8f5f1;
+            --muted-foreground: #71717a;
             --border: #e5e5e5;
             --primary: #0a0a0a;
             --primary-foreground: #fafafa;
@@ -68,7 +74,7 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             --success: #22c55e;
             --warning: #f59e0b;
             --danger: #ef4444;
-            --sidebar: #fafafa;
+            --sidebar: #ffffff;
             --sidebar-foreground: #0a0a0a;
             --sidebar-border: #e5e5e5;
         }
@@ -87,13 +93,20 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             --secondary-foreground: #fafafa;
             --accent: #262626;
             --accent-foreground: #fafafa;
-            --sidebar: #171717;
+            --sidebar: #0a0a0a;
             --sidebar-foreground: #fafafa;
             --sidebar-border: #262626;
         }
         
+        @font-face {
+            font-family: 'Geist Sans';
+            src: url('../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2') format('woff2');
+            font-weight: 100 900;
+            font-style: normal;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-family: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background: var(--background);
             color: var(--foreground);
             display: flex;
@@ -145,7 +158,7 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             padding: 10px 12px;
             color: var(--muted-foreground);
             text-decoration: none;
-            border-radius: 8px;
+            border-radius: 12px;
             transition: all 0.2s;
             font-size: 14px;
             font-weight: 500;
@@ -271,14 +284,15 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         .facility-card {
             background: var(--card);
             border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: 20px;
             padding: 24px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
             transition: all 0.3s;
         }
         
         .facility-card:hover {
             transform: translateY(-4px);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.07);
         }
         
         .facility-card h3 {
@@ -320,6 +334,79 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             color: var(--success);
         }
         
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border); 
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+            margin-bottom: 24px;
+        }
+
+        .card h2 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .report-form {
+            display: flex;
+            align-items: flex-end;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        
+        .form-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .form-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--muted-foreground);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            background: var(--background);
+            color: var(--foreground);
+        }
+
+        .btn-add {
+            padding: 10px 20px;
+            background: var(--primary);
+            color: var(--primary-foreground);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+            width: 100%;
+            justify-content: center;
+        }
+        .btn-add:hover {
+            opacity: 0.9;
+        }
+        
+        .btn-secondary {
+            background: var(--secondary);
+            color: var(--secondary-foreground);
+            border: 1px solid var(--border);
+        }
         /* Responsive */
         @media (max-width: 1024px) {
             .facilities-grid {
@@ -376,6 +463,15 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             
             .stat-value {
                 font-size: 24px;
+            }
+
+            .report-form {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .card {
+                margin-bottom: 16px;
             }
         }
 
@@ -456,6 +552,33 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
 
         <!-- Content -->
         <main class="content">
+            <div class="card">
+                <h2>Generate Reports</h2>
+                <form action="generate_report.php" method="GET" class="report-form" id="reportForm">
+                    <div class="form-group">
+                        <label for="start_date" class="form-label">Start Date</label>
+                        <input type="date" id="start_date" name="start_date" class="form-input" value="<?php echo date('Y-m-01'); ?>" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="end_date" class="form-label">End Date</label>
+                        <input type="date" id="end_date" name="end_date" class="form-input" value="<?php echo date('Y-m-t'); ?>" required>
+                    </div>
+                    <div class="form-group">
+                        <button type="button" onclick="generateReport('excel')" class="btn-add">
+                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
+                            Download Excel
+                        </button>
+                    </div>
+                    <div class="form-group">
+                        <button type="button" onclick="generateReport('csv')" class="btn-add">
+                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
+                            Download CSV
+                        </button>
+                    </div>
+                    <input type="hidden" name="format" id="report_format">
+                </form>
+            </div>
+
             <div class="facilities-grid">
                 <?php foreach ($facility_stats as $facility => $stats): ?>
                     <div class="facility-card">
@@ -546,6 +669,12 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             const theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
             updateThemeIcon(theme);
         });
+
+        function generateReport(format) {
+            const form = document.getElementById('reportForm');
+            document.getElementById('report_format').value = format;
+            form.submit();
+        }
     </script>
 </body>
 </html>

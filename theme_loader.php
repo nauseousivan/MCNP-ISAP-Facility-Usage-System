@@ -4,7 +4,11 @@
  * Include this file at the top of any page that needs dynamic branding
  */
 
-// Default values (for pages without login)
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Default values
 $logo_file = 'combined-logo.png';
 $portal_name = 'MCNP-ISAP Facility Usage Portal';
 $portal_subtitle = 'Service Portal';
@@ -43,19 +47,15 @@ if (isset($_SESSION['user_id'])) {
         $department_lower = strtolower($user_department);
         
         if (strpos($department_lower, 'international') !== false) {
-            // International School of Asia and the Pacific
             $logo_file = 'isap-logo2.png';
-            $portal_name = 'ISAP Facility Portal';
-            $portal_subtitle = 'International School of Asia and the Pacific';
+            $portal_name = 'ISAP Portal';
         } elseif (strpos($department_lower, 'medical') !== false) {
-            // Medical Colleges of Northern Philippines
             $logo_file = 'medical-logo2.png';
-            $portal_name = 'MCNP Facility Portal';
-            $portal_subtitle = 'Medical Colleges of Northern Philippines';
+            $portal_name = 'MCNP Portal';
         }
     }
     
-    // Get theme preference from database
+    // Get theme preference
     require_once 'config.php';
     $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
     
@@ -69,7 +69,8 @@ if (isset($_SESSION['user_id'])) {
         
         if ($result->num_rows > 0) {
             $prefs = $result->fetch_assoc();
-            $theme = $prefs['theme'];
+            $theme = $prefs['theme'] ?? 'light';
+            $_SESSION['theme'] = $theme; // IMPORTANT: Save it to the session for next page load.
         }
         
         $conn->close();
@@ -86,4 +87,3 @@ $GLOBALS['logo_file'] = $logo_file;
 $GLOBALS['portal_name'] = $portal_name;
 $GLOBALS['portal_subtitle'] = $portal_subtitle;
 $GLOBALS['theme'] = $theme;
-?>

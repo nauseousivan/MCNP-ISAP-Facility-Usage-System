@@ -96,6 +96,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $success_message = "Preferences saved successfully! The theme will apply across all pages.";
     }
+
+    if (isset($_POST['delete_account'])) {
+        $current_password = $_POST['current_password_for_delete'];
+
+        // Verify password before deletion
+        if (password_verify($current_password, $user['password'])) {
+            // Password is correct, proceed with deactivation (soft delete)
+            $delete_sql = "UPDATE users SET is_active = 0 WHERE id = ?";
+            $delete_stmt = $conn->prepare($delete_sql);
+            $delete_stmt->bind_param("i", $user_id);
+
+            if ($delete_stmt->execute()) {
+                // Destroy the session and redirect to logout
+                session_destroy();
+                header("Location: index.php?message=account_deactivated");
+                exit();
+            } else {
+                $error_message = "An error occurred while deactivating your account.";
+            }
+        } else {
+            $error_message = "Incorrect password. Account deactivation failed.";
+        }
+    }
 }
 
 $pref_sql = "SELECT * FROM user_preferences WHERE user_id = ?";
@@ -158,9 +181,61 @@ $profile_picture = !empty($user['profile_picture']) ? $user['profile_picture'] :
             --border-color: #404040;
             --accent-color: #818cf8;
         }
+
+        /* New Theme Palettes */
+        [data-theme="blue"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f0f9ff; /* sky-50 */
+            --text-primary: #0c4a6e; /* sky-900 */
+            --text-secondary: #38bdf8; /* sky-400 */
+            --border-color: #e0f2fe; /* sky-100 */
+            --accent-color: #0ea5e9; /* sky-500 */
+        }
+
+        [data-theme="pink"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #fdf2f8; /* pink-50 */
+            --text-primary: #831843; /* pink-900 */
+            --text-secondary: #f472b6; /* pink-400 */
+            --border-color: #fce7f3; /* pink-100 */
+            --accent-color: #ec4899; /* pink-500 */
+        }
+
+        [data-theme="green"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f0fdf4; /* green-50 */
+            --text-primary: #14532d; /* green-900 */
+            --text-secondary: #4ade80; /* green-400 */
+            --border-color: #dcfce7; /* green-100 */
+            --accent-color: #22c55e; /* green-500 */
+        }
+
+        [data-theme="purple"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f3ff; /* violet-50 */
+            --text-primary: #4c1d95; /* violet-900 */
+            --text-secondary: #a78bfa; /* violet-400 */
+            --border-color: #ede9fe; /* violet-100 */
+            --accent-color: #8b5cf6; /* violet-500 */
+        }
+
+        .btn-danger {
+            background: var(--danger, #ef4444);
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #dc2626;
+        }
         
+        @font-face {
+            font-family: 'Geist Sans';
+            src: url('node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2') format('woff2');
+            font-weight: 100 900;
+            font-style: normal;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: var(--bg-secondary);
             color: var(--text-primary);
             transition: background 0.3s, color 0.3s;
@@ -355,7 +430,7 @@ $profile_picture = !empty($user['profile_picture']) ? $user['profile_picture'] :
         
         .theme-preview {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
             gap: 12px;
             margin-top: 12px;
         }
@@ -367,6 +442,7 @@ $profile_picture = !empty($user['profile_picture']) ? $user['profile_picture'] :
             cursor: pointer;
             transition: all 0.2s;
             text-align: center;
+            position: relative;
         }
         
         .theme-option:hover {
@@ -376,6 +452,17 @@ $profile_picture = !empty($user['profile_picture']) ? $user['profile_picture'] :
         .theme-option.selected {
             border-color: var(--accent-color);
             background: rgba(99, 102, 241, 0.1);
+        }
+
+        .theme-option .color-dot {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            margin: 0 auto 8px;
+            border: 2px solid rgba(0,0,0,0.1);
+        }
+        [data-theme="dark"] .theme-option .color-dot {
+            border-color: rgba(255,255,255,0.1);
         }
         
         .theme-option svg {
@@ -596,17 +683,29 @@ $profile_picture = !empty($user['profile_picture']) ? $user['profile_picture'] :
                 <div class="form-group">
                     <label>Theme</label>
                     <div class="theme-preview">
-                        <div class="theme-option <?php echo $theme === 'light' ? 'selected' : ''; ?>" onclick="selectTheme('light')">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707A2 2 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
-                            </svg>
+                        <div class="theme-option <?php echo $theme === 'light' ? 'selected' : ''; ?>" onclick="selectTheme('light')" title="Light Theme">
+                            <div class="color-dot" style="background: #f8f9fa;"></div>
                             <div>Light</div>
                         </div>
-                        <div class="theme-option <?php echo $theme === 'dark' ? 'selected' : ''; ?>" onclick="selectTheme('dark')">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
-                            </svg>
+                        <div class="theme-option <?php echo $theme === 'dark' ? 'selected' : ''; ?>" onclick="selectTheme('dark')" title="Dark Theme">
+                            <div class="color-dot" style="background: #1a1a1a;"></div>
                             <div>Dark</div>
+                        </div>
+                        <div class="theme-option <?php echo $theme === 'blue' ? 'selected' : ''; ?>" onclick="selectTheme('blue')" title="Blue Theme">
+                            <div class="color-dot" style="background: #38bdf8;"></div>
+                            <div>Blue</div>
+                        </div>
+                        <div class="theme-option <?php echo $theme === 'green' ? 'selected' : ''; ?>" onclick="selectTheme('green')" title="Green Theme">
+                            <div class="color-dot" style="background: #4ade80;"></div>
+                            <div>Green</div>
+                        </div>
+                        <div class="theme-option <?php echo $theme === 'pink' ? 'selected' : ''; ?>" onclick="selectTheme('pink')" title="Pink Theme">
+                            <div class="color-dot" style="background: #f472b6;"></div>
+                            <div>Pink</div>
+                        </div>
+                        <div class="theme-option <?php echo $theme === 'purple' ? 'selected' : ''; ?>" onclick="selectTheme('purple')" title="Purple Theme">
+                            <div class="color-dot" style="background: #a78bfa;"></div>
+                            <div>Purple</div>
                         </div>
                     </div>
                     <input type="hidden" name="theme" id="themeInput" value="<?php echo $theme; ?>">
@@ -658,6 +757,28 @@ $profile_picture = !empty($user['profile_picture']) ? $user['profile_picture'] :
                 <button type="submit" name="update_password" class="btn-primary">Update Password</button>
             </form>
         </div>
+
+        <div class="settings-section">
+            <h2>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+                Deactivate Account
+            </h2>
+            <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 16px;">
+                This will deactivate your account, and you will no longer be able to log in. An administrator can reactivate your account upon request.
+            </p>
+            <form method="POST" onsubmit="return confirm('Are you sure you want to deactivate your account?');">
+                <div class="form-group">
+                    <label>Enter Your Current Password to Confirm</label>
+                    <input type="password" name="current_password_for_delete" required>
+                </div>
+                <button type="submit" name="delete_account" class="btn-primary btn-danger">
+                    Deactivate My Account
+                </button>
+            </form>
+        </div>
+
     </div>
 
     <script>

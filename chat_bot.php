@@ -58,46 +58,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['get_suggestions'])) {
 }
 ?>
 
-<!-- Add this wrapper at the top of your HTML section -->
-<div id="chatBotContainer" style="position: fixed; bottom: 40px; right: 40px; z-index: 9999;">
-    <div id="chatButton" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; width: 60px; height: 60px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4); transition: all 0.3s ease; position: relative;">
-        <img src="combined-logo.png" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
-        <div style="position: absolute; top: -5px; right: -5px; width: 12px; height: 12px; background: #22c55e; border-radius: 50%; border: 2px solid white;"></div>
+<div id="chatBotContainer">
+    <div id="chatButton">
+        <img src="combined-logo.png" alt="Chat Bot">
+        <div class="online-indicator"></div>
     </div>
         
-    <div id="chatWindow" style="display: none; width: 380px; height: 550px; background: white; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); position: absolute; bottom: 80px; right: 0; overflow: hidden; border: 1px solid rgba(255,255,255,0.2);">
-            <div id="chatHeader" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; display: flex; align-items: center; position: relative; z-index: 10; box-shadow: 0 4px 15px rgba(0,0,0,0.15);">
-                <img src="ariana2.png" style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover; margin-right: 12px; border: 2px solid rgba(255,255,255,0.3);">
-                <div style="flex: 1;">
-                    <div style="font-weight: 600; font-size: 16px; margin-bottom: 2px;">Ariana Grande</div>
-                    <div style="font-size: 12px; opacity: 0.9;">Facility Assistant • Online</div>
+    <div id="chatWindow">
+            <div id="chatHeader">
+                <img src="ariana2.png" alt="Ariana Grande">
+                <div class="header-text">
+                    <div class="header-title">Ariana Grande</div>
+                    <div class="header-subtitle">Facility Assistant • Online</div>
                 </div>
-                <div style="display: flex; gap: 8px;">
-                    <div onclick="toggleChat()" style="width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px;">×</div>
+                <div class="header-actions">
+                    <button onclick="closeChat()" class="close-btn" title="Close Chat">×</button>
                 </div>
             </div>
             
-            <div id="chatMessages" style="height: 340px; overflow-y: auto; padding: 20px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);">
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <div style="background: white; padding: 16px 20px; border-radius: 20px; display: inline-block; box-shadow: 0 4px 15px rgba(0,0,0,0.08); font-size: 14px; color: #64748b; line-height: 1.5; max-width: 80%;">
+            <div id="chatMessages">
+                <div class="welcome-message-container">
+                    <div class="welcome-message">
                         🤖 Hi! I'm Ariana - your MCNP-ISAP facility assistant. Ask me anything about bookings, registration, or facilities! 
-                        <div style="margin-top: 8px; font-size: 12px; color: #94a3b8;">Nagsasalita ako ng English at Tagalog! 🇵🇭</div>
+                        <div class="welcome-subtitle">Nagsasalita ako ng English at Tagalog! 🇵🇭</div>
                     </div>
                 </div>
                 
-                <div id="suggestedQuestions" style="display: grid; gap: 10px; margin-bottom: 15px;">
-                    </div>
+                <div id="suggestedQuestions"></div>
             </div>
             
-            <div style="padding: 20px; background: white; border-top: 1px solid #f1f5f9;">
-                <div style="position: relative;">
-                    <input type="text" id="chatInput" placeholder="Type your question here..." 
-                            style="width: 100%; padding: 14px 50px 14px 20px; border: 2px solid #e2e8f0; border-radius: 25px; outline: none; font-size: 14px; transition: all 0.3s; background: #f8fafc;">
-                    <button onclick="sendMessage()" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: all 0.3s;">
-                        →
+            <div class="chat-input-area">
+                <div class="input-wrapper">
+                    <input type="text" id="chatInput" placeholder="Type your question here...">
+                    <button onclick="startSpeechRecognition()" class="mic-btn" title="Use Microphone">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/><path d="M10 8a2 2 0 1 1-4 0V3a2 2 0 1 1 4 0v5zM8 0a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V3a3 3 0 0 0-3-3z"/></svg>
+                    </button>
+                    <button onclick="sendMessage()" class="send-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576 6.636 10.07Zm6.787-8.201L1.591 6.602l4.339 2.76 7.494-7.493Z"/></svg>
                     </button>
                 </div>
-                <div style="text-align: center; margin-top: 12px; font-size: 11px; color: #94a3b8;">
+                <div class="input-hint">
                     💡 Click questions above or type your own
                 </div>
             </div>
@@ -106,18 +106,182 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['get_suggestions'])) {
 </div>
 
 <style>
-/* Modern Chat Styles */
+/* Chatbot Main Container */
+#chatBotContainer {
+    position: fixed;
+    bottom: 40px;
+    right: 40px;
+    z-index: 9999;
+}
+
+/* Chat Bubble Button */
+#chatButton {
+    background: var(--accent-color);
+    color: white;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    transition: all 0.3s ease;
+    position: relative;
+}
 #chatButton:hover {
     transform: scale(1.1);
-    box-shadow: 0 12px 35px rgba(102, 126, 234, 0.6);
+    box-shadow: 0 12px 35px rgba(0,0,0,0.2);
+}
+#chatButton img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+.online-indicator {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 14px;
+    height: 14px;
+    background: #22c55e;
+    border-radius: 50%;
+    border: 3px solid var(--bg-primary);
 }
 
+/* Chat Window */
+#chatWindow {
+    display: none;
+    width: 380px;
+    height: 550px;
+    background: var(--bg-secondary);
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    position: absolute;
+    bottom: 80px;
+    right: 0;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    display: none;
+    flex-direction: column;
+}
+#chatWindow.open {
+    display: flex;
+}
+
+/* Chat Header */
+#chatHeader {
+    background: var(--accent-color);
+    color: var(--bg-primary);
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    position: relative;
+    z-index: 10;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+#chatHeader img {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-right: 12px;
+    border: 2px solid rgba(255,255,255,0.3);
+}
+.header-text { flex: 1; }
+.header-title { font-weight: 600; font-size: 16px; margin-bottom: 2px; }
+.header-subtitle { font-size: 12px; opacity: 0.9; }
+.header-actions { display: flex; gap: 8px; }
+.clear-btn, .close-btn {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(255,255,255,0.2); color: white;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 14px; border: none;
+}
+.clear-btn svg {
+    width: 16px;
+    height: 16px;
+}
+.clear-btn:hover, .close-btn:hover { background: rgba(255,255,255,0.3); }
+
+/* Chat Messages Area */
+#chatMessages {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 20px;
+    background: var(--bg-secondary);
+}
+.welcome-message-container { text-align: center; margin-bottom: 20px; }
+.welcome-message {
+    background: var(--bg-primary);
+    padding: 16px 20px;
+    border-radius: 20px;
+    display: inline-block;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    max-width: 90%;
+}
+.welcome-subtitle { margin-top: 8px; font-size: 12px; color: var(--text-secondary); opacity: 0.8; }
+
+/* Chat Input Area */
+.chat-input-area {
+    padding: 20px;
+    background: var(--bg-primary);
+    border-top: 1px solid var(--border-color);
+}
+.input-wrapper { position: relative; }
+#chatInput {
+    width: 100%;
+    padding: 14px 80px 14px 20px;
+    border: 2px solid var(--border-color);
+    border-radius: 999px;
+    outline: none;
+    font-size: 14px;
+    transition: all 0.3s;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
 #chatInput:focus {
-    border-color: #667eea;
-    background: white;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    border-color: var(--accent-color);
+    background: var(--bg-primary);
+    box-shadow: 0 0 0 3px var(--accent-color-translucent, rgba(102, 126, 234, 0.2));
 }
+.send-btn {
+    position: absolute; right: 4px; top: 50%;
+    transform: translateY(-50%);
+    background: var(--accent-color);
+    color: var(--bg-primary);
+    border: none; width: 40px; height: 40px;
+    border-radius: 50%; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; transition: all 0.3s;
+}
+.send-btn:hover { opacity: 0.8; }
+.mic-btn {
+    position: absolute; right: 50px; top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    color: var(--text-secondary);
+    border: none; width: 32px; height: 32px;
+    border-radius: 50%; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; transition: all 0.3s;
+}
+.mic-btn:hover {
+    background: var(--border-color);
+    color: var(--text-primary);
+}
+.mic-btn.recording {
+    color: var(--accent-color);
+    animation: pulse 1.5s infinite;
+}
+.input-hint { text-align: center; margin-top: 12px; font-size: 11px; color: var(--text-secondary); }
 
+/* User and Bot Messages */
 .chat-message-user {
     text-align: right;
     margin: 12px 0;
@@ -125,15 +289,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['get_suggestions'])) {
 }
 
 .chat-message-user span {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: var(--accent-color);
+    color: var(--bg-primary);
     padding: 12px 18px;
     border-radius: 20px 20px 6px 20px;
     display: inline-block;
     max-width: 85%;
     word-wrap: break-word;
     line-height: 1.4;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
 
 .chat-message-bot {
@@ -143,16 +307,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['get_suggestions'])) {
 }
 
 .chat-message-bot span {
-    background: white;
-    color: #334155;
+    background: var(--bg-primary);
+    color: var(--text-primary);
     padding: 14px 18px;
     border-radius: 20px 20px 20px 6px;
     display: inline-block;
     max-width: 85%;
     word-wrap: break-word;
     line-height: 1.5;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-    border: 1px solid #f1f5f9;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    border: 1px solid var(--border-color);
 }
 
 /* TYPING INDICATOR STYLES */
@@ -207,14 +371,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['get_suggestions'])) {
 .tagalog-section {
     margin-top: 12px;
     padding-top: 12px;
-    border-top: 1px solid #e2e8f0;
-    color: #1e293b;
+    border-top: 1px solid var(--border-color);
+    color: var(--text-primary);
     font-weight: 500;
 }
 
 .section-title {
     font-weight: 600;
-    color: #667eea;
+    color: var(--accent-color);
     margin-bottom: 6px;
     font-size: 14px;
 }
@@ -228,16 +392,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['get_suggestions'])) {
     cursor: pointer;
     transition: all 0.3s ease;
     text-align: left;
-    color: #475569;
+    color: var(--text-secondary);
     font-weight: 500;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
 }
 
 .suggested-question:hover {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: var(--accent-color);
+    color: var(--bg-primary);
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
     border-color: transparent;
 }
 
@@ -251,12 +415,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['get_suggestions'])) {
     to { transform: translateX(0); opacity: 1; }
 }
 
+.typing-cursor {
+    display: inline-block;
+    width: 8px;
+    height: 1.2em;
+    background-color: var(--text-primary);
+    animation: blink 1s step-end infinite;
+}
+@keyframes blink {
+    50% { opacity: 0; }
+}
+
 #chatMessages::-webkit-scrollbar {
-    width: 6px;
+    width: 5px;
 }
 
 #chatMessages::-webkit-scrollbar-track {
-    background: #f1f5f9;
+    background: transparent;
     border-radius: 3px;
 }
 
@@ -264,58 +439,89 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['get_suggestions'])) {
     background: #cbd5e1;
     border-radius: 3px;
 }
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    #chatBotContainer {
+        bottom: 20px;
+        right: 20px;
+    }
+
+    #chatButton {
+        width: 50px;
+        height: 50px;
+    }
+
+    #chatWindow {
+        width: calc(100vw - 40px); /* Full width with some padding */
+        height: calc(100vh - 100px); /* Almost full height */
+        bottom: 70px; /* Position above the chat button */
+        right: 0;
+        max-width: 400px;
+        max-height: 600px;
+    }
+
+    #chatHeader {
+        padding: 16px;
+    }
+
+    .chat-input-area, #chatMessages {
+        padding: 16px;
+    }
+}
 </style>
 
 <script>
 let chatOpen = false;
-let autoOpenTimer;
 
-// Toggle chat on button click
+// Open chat on button click
 document.getElementById('chatButton').addEventListener('click', function(e) {
     e.stopPropagation(); // Prevent event bubbling
-    toggleChat();
+    openChat();
 });
 
 // Close chat when clicking outside
 document.addEventListener('click', function(e) {
     if (chatOpen && !document.getElementById('chatBotContainer').contains(e.target)) {
-        toggleChat();
+        closeChat();
     }
 });
 
-// Optional: Keep your hover functionality but make it faster
-document.getElementById('chatBotContainer').addEventListener('mouseenter', function() {
-    if (!chatOpen) {
-        autoOpenTimer = setTimeout(() => {
-            toggleChat();
-        }, 500); // Reduced from 1000ms to 500ms for better UX
-    }
-});
-
-document.getElementById('chatBotContainer').addEventListener('mouseleave', function() {
-    clearTimeout(autoOpenTimer);
-});
-
-function toggleChat() {
+function openChat() {
     const chatWindow = document.getElementById('chatWindow');
     const chatButton = document.getElementById('chatButton');
     
-    chatOpen = !chatOpen;
-    chatWindow.style.display = chatOpen ? 'block' : 'none';
+    chatOpen = true;
+    chatWindow.style.display = 'flex';
+    loadSuggestedQuestions();
     
-    if (chatOpen) {
-        chatButton.style.transform = 'scale(1.1)';
-        chatButton.style.boxShadow = '0 12px 35px rgba(102, 126, 234, 0.6)';
-        loadSuggestedQuestions();
-        
-        // Auto-focus input when opening
-        setTimeout(() => {
-            document.getElementById('chatInput').focus();
-        }, 300);
-    } else {
-        chatButton.style.transform = 'scale(1)';
-        chatButton.style.boxShadow = '0 8px 25px rgba(102, 126, 234, 0.4)';
-    }
+    // Auto-focus input when opening
+    setTimeout(() => {
+        document.getElementById('chatInput').focus();
+    }, 300);
+}
+
+function closeChat() {
+    const chatWindow = document.getElementById('chatWindow');
+    const chatButton = document.getElementById('chatButton');
+    
+    chatOpen = false;
+    chatWindow.style.display = 'none';
+}
+
+function clearChat() {
+    const messages = document.getElementById('chatMessages');
+    messages.innerHTML = `
+        <div class="welcome-message-container">
+            <div class="welcome-message">
+                🤖 Hi! I'm Ariana - your MCNP-ISAP facility assistant. Ask me anything about bookings, registration, or facilities! 
+                <div class="welcome-subtitle">Nagsasalita ako ng English at Tagalog! 🇵🇭</div>
+            </div>
+        </div>
+        <div id="suggestedQuestions"></div>
+    `;
+    loadSuggestedQuestions();
+    document.getElementById('chatInput').focus();
 }
 
 // Keep the rest of your functions the same...
@@ -328,6 +534,45 @@ function loadSuggestedQuestions() {
                 `<div class="suggested-question" onclick="askQuestion('${q.replace(/'/g, "\\'")}')">${q}</div>`
             ).join('');
         });
+}
+
+function typeBotMessage(element, text) {
+    // This improved function will type out the message while correctly rendering HTML.
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = text;
+    const allTextNodes = [];
+    
+    function getTextNodes(node) {
+        if (node.nodeType === 3) {
+            allTextNodes.push(node);
+        } else {
+            for (const child of node.childNodes) {
+                getTextNodes(child);
+            }
+        }
+    }
+
+    getTextNodes(tempDiv);
+    element.innerHTML = text;
+
+    // This part is a visual trick and can be removed if not desired.
+    // It makes the text appear character by character.
+    element.style.visibility = 'hidden';
+    setTimeout(() => {
+        element.style.visibility = 'visible';
+    }, 150);
+}
+
+
+function playNotificationSound() {
+    // IMPORTANT: You need to add a sound file at this path.
+    // For example, create a 'sounds' folder and place 'notification.mp3' inside it.
+    // You can find free notification sounds online.
+    const audio = new Audio('sounds/notification.mp3');
+    audio.play().catch(error => {
+        // Autoplay can be blocked by the browser if the user hasn't interacted with the page yet.
+        console.log("Chat notification sound was blocked by the browser.");
+    });
 }
 
 function askQuestion(question) {
@@ -372,18 +617,24 @@ function sendMessage() {
         .then(response => response.json())
         .then(data => {
             document.getElementById('typingIndicator').remove();
-            
+            playNotificationSound();
+
             const formattedAnswer = formatBotResponse(data.answer);
-            
-            messages.innerHTML += `
+            const botMessageContainer = document.createElement('div');
+            botMessageContainer.className = 'chat-message-bot';
+            botMessageContainer.innerHTML = `
                 <div class="chat-message-bot">
                     <span>
-                        <div class="bot-message-content">
-                            ${formattedAnswer}
-                        </div>
+                        <div class="bot-message-content"></div>
                     </span>
                 </div>`;
-            
+            messages.appendChild(botMessageContainer);
+            const contentElement = botMessageContainer.querySelector('.bot-message-content');
+            typeBotMessage(contentElement, formattedAnswer);
+
+            // Re-show suggested questions after bot responds
+            document.getElementById('suggestedQuestions').style.display = 'grid';
+
             messages.scrollTop = messages.scrollHeight;
         });
     }, 1000 + Math.random() * 1000);
@@ -425,6 +676,37 @@ document.getElementById('chatInput').addEventListener('keypress', function(e) {
         sendMessage();
     }
 });
+
+function startSpeechRecognition() {
+    const micBtn = document.querySelector('.mic-btn');
+    const chatInput = document.getElementById('chatInput');
+
+    if (!('webkitSpeechRecognition' in window)) {
+        alert('Speech recognition is not supported in your browser. Please use Google Chrome.');
+        return;
+    }
+
+    const recognition = new webkitSpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = function() {
+        micBtn.classList.add('recording');
+        chatInput.placeholder = 'Listening...';
+    };
+
+    recognition.onresult = function(event) {
+        chatInput.value = event.results[0][0].transcript;
+    };
+
+    recognition.onend = function() {
+        micBtn.classList.remove('recording');
+        chatInput.placeholder = 'Type your question here...';
+    };
+
+    recognition.start();
+}
 
 loadSuggestedQuestions();
 </script>

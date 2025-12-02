@@ -14,18 +14,7 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-// Get theme directly from database as fallback
-$theme = 'light';
-$user_id = $_SESSION['user_id'];
-$sql = "SELECT theme FROM user_preferences WHERE user_id = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$result = $stmt->get_result();
-if ($result->num_rows > 0) {
-    $prefs = $result->fetch_assoc();
-    $theme = $prefs['theme'];
-}
+$theme = $GLOBALS['theme'];
 
 $request_id = $_GET['id'] ?? 0;
 $user_id = $_SESSION['user_id'];
@@ -67,7 +56,7 @@ $portal_name = $GLOBALS['portal_name'];
         
         :root {
             --bg-primary: #ffffff;
-            --bg-secondary: #f5f7fa;
+            --bg-secondary: #fdfaf6;
             --bg-tertiary: #f9fafb;
             --text-primary: #1a1a1a;
             --text-secondary: #6b7280;
@@ -87,6 +76,8 @@ $portal_name = $GLOBALS['portal_name'];
             --status-approved-text: #065f46;
             --status-rejected-bg: #fee2e2;
             --status-rejected-text: #991b1b;
+            --status-cancelled-bg: #e5e7eb;
+            --status-cancelled-text: #4b5563;
             --admin-notes-bg: #fef3c7;
             --admin-notes-border: #f59e0b;
             --admin-notes-title: #92400e;
@@ -115,14 +106,60 @@ $portal_name = $GLOBALS['portal_name'];
             --status-approved-text: #d1fae5;
             --status-rejected-bg: #991b1b;
             --status-rejected-text: #fee2e2;
+            --status-cancelled-bg: #4b5563;
+            --status-cancelled-text: #e5e7eb;
             --admin-notes-bg: #78350f;
             --admin-notes-border: #f59e0b;
             --admin-notes-title: #fef3c7;
             --admin-notes-text: #fef3c7;
         }
 
+        /* New Theme Palettes */
+        [data-theme="blue"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f0f9ff; /* sky-50 */
+            --text-primary: #0c4a6e; /* sky-900 */
+            --text-secondary: #38bdf8; /* sky-400 */
+            --border-color: #e0f2fe; /* sky-100 */
+            --accent-color: #0ea5e9; /* sky-500 */
+        }
+
+        [data-theme="pink"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #fdf2f8; /* pink-50 */
+            --text-primary: #831843; /* pink-900 */
+            --text-secondary: #f472b6; /* pink-400 */
+            --border-color: #fce7f3; /* pink-100 */
+            --accent-color: #ec4899; /* pink-500 */
+        }
+
+        [data-theme="green"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f0fdf4; /* green-50 */
+            --text-primary: #14532d; /* green-900 */
+            --text-secondary: #4ade80; /* green-400 */
+            --border-color: #dcfce7; /* green-100 */
+            --accent-color: #22c55e; /* green-500 */
+        }
+
+        [data-theme="purple"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f3ff; /* violet-50 */
+            --text-primary: #4c1d95; /* violet-900 */
+            --text-secondary: #a78bfa; /* violet-400 */
+            --border-color: #ede9fe; /* violet-100 */
+            --accent-color: #8b5cf6; /* violet-500 */
+        }
+
+        @font-face {
+            font-family: 'Geist Sans';
+            src: url('node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2') format('woff2');
+            font-weight: 100 900;
+            font-style: normal;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: var(--bg-secondary);
             line-height: 1.6;
             color: var(--text-primary);
@@ -190,10 +227,11 @@ $portal_name = $GLOBALS['portal_name'];
         
         .request-card {
             background: var(--card-bg);
-            border-radius: 12px;
+            border-radius: 20px;
             padding: 24px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+            border                 : 1px solid var(--border-color);
+            transition: all 0.3s;
         }
         
         @media (min-width: 768px) {
@@ -258,6 +296,11 @@ $portal_name = $GLOBALS['portal_name'];
         .status-badge.rejected {
             background: var(--status-rejected-bg);
             color: var(--status-rejected-text);
+        }
+        
+        .status-badge.cancelled {
+            background: var(--status-cancelled-bg);
+            color: var(--status-cancelled-text);
         }
         
         .info-section {

@@ -8,6 +8,20 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'Admin') {
     exit();
 }
 
+/**
+ * Shortens long department names.
+ *
+ * @param string $department The full department name.
+ * @return string The abbreviated name or the original name.
+ */
+function shortenDepartment(string $department): string {
+    $shortNames = [
+        'Medical Colleges of Northern Philippines' => 'MCNP',
+        'International School of Asia and the Pacific' => 'ISAP'
+    ];
+    return $shortNames[$department] ?? $department;
+}
+
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
 // Get statistics
@@ -21,15 +35,19 @@ $stats['total'] = $result->fetch_assoc()['count'];
 $result = $conn->query("SELECT COUNT(*) as count FROM facility_requests WHERE status = 'pending'");
 $stats['pending'] = $result->fetch_assoc()['count'];
 
-// Approved requests
-$result = $conn->query("SELECT COUNT(*) as count FROM facility_requests WHERE status = 'approved'");
-$stats['approved'] = $result->fetch_assoc()['count'];
-
 // Total users
 $result = $conn->query("SELECT COUNT(*) as count FROM users WHERE user_type != 'Admin'");
 $stats['users'] = $result->fetch_assoc()['count'];
 
 // Recent requests
+$recent_requests = $conn->query("
+    SELECT fr.*, u.name as user_name 
+    FROM facility_requests fr 
+    JOIN users u ON fr.user_id = u.id 
+    ORDER BY fr.created_at DESC 
+    LIMIT 5
+");
+
 $recent_requests = $conn->query("
     SELECT fr.*, u.name as user_name 
     FROM facility_requests fr 
@@ -112,12 +130,12 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         }
         
         :root {
-            --background: #ffffff;
+            --background: #fdfaf6;
             --foreground: #0a0a0a;
             --card: #ffffff;
             --card-foreground: #0a0a0a;
-            --muted: #f5f5f5;
-            --muted-foreground: #737373;
+            --muted: #f8f5f1;
+            --muted-foreground: #71717a;
             --border: #e5e5e5;
             --primary: #0a0a0a;
             --primary-foreground: #fafafa;
@@ -129,7 +147,7 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             --warning: #f59e0b;
             --danger: #ef4444;
             --info: #3b82f6;
-            --sidebar: #fafafa;
+            --sidebar: #ffffff;
             --sidebar-foreground: #0a0a0a;
             --sidebar-border: #e5e5e5;
         }
@@ -148,13 +166,20 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             --secondary-foreground: #fafafa;
             --accent: #262626;
             --accent-foreground: #fafafa;
-            --sidebar: #171717;
+            --sidebar: #0a0a0a;
             --sidebar-foreground: #fafafa;
             --sidebar-border: #262626;
         }
         
+        @font-face {
+            font-family: 'Geist Sans';
+            src: url('../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2') format('woff2');
+            font-weight: 100 900;
+            font-style: normal;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-family: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background: var(--background);
             color: var(--foreground);
             display: flex;
@@ -205,7 +230,7 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             padding: 10px 12px;
             color: var(--muted-foreground);
             text-decoration: none;
-            border-radius: 8px;
+            border-radius: 12px;
             transition: all 0.2s;
             font-size: 14px;
             font-weight: 500;
@@ -400,18 +425,30 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         .stat-card {
             background: var(--card);
             border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: 20px;
             padding: 24px;
             transition: all 0.3s;
             cursor: pointer;
             text-decoration: none;
             display: block;
             color: inherit;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
         
         .stat-card:hover {
             transform: translateY(-4px);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.07);
         }
         
         .stat-label {
@@ -430,7 +467,7 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         .stat-icon {
             width: 48px;
             height: 48px;
-            border-radius: 10px;
+            border-radius: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -438,22 +475,22 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         }
         
         .stat-icon.primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #d4a373; /* Darker Beige */
             color: white;
         }
         
         .stat-icon.warning {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            background: #e9c46a; /* Sandy Beige */
             color: white;
         }
         
         .stat-icon.success {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            background: #a3b18a; /* Sage Green */
             color: white;
         }
         
         .stat-icon.info {
-            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            background: #588157; /* Forest Green */
             color: white;
         }
         
@@ -461,10 +498,11 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         .card {
             background: var(--card);
             border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: 20px;
             padding: 24px;
             margin-bottom: 24px;
             transition: background-color 0.3s, border-color 0.3s;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
         }
         
         .card-header {
@@ -530,7 +568,7 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         .badge {
             display: inline-flex;
             align-items: center;
-            padding: 4px 10px;
+            padding: 6px 12px;
             border-radius: 6px;
             font-size: 12px;
             font-weight: 600;
@@ -558,7 +596,7 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             display: flex;
             align-items: flex-start;
             gap: 16px;
-            padding: 16px;
+            padding: 12px;
             border-radius: 8px;
             transition: background 0.2s;
             cursor: pointer;
@@ -571,7 +609,7 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         .activity-icon {
             width: 40px;
             height: 40px;
-            border-radius: 8px;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -852,12 +890,36 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
 
         <!-- Content -->
         <main class="content">
+            <style>
+                .stat-card { animation: fadeInUp 0.5s ease-out forwards; opacity: 0; }
+                .stats-grid .stat-card:nth-child(1) { animation-delay: 0.1s; }
+                .stats-grid .stat-card:nth-child(2) { animation-delay: 0.2s; }
+                .stats-grid .stat-card:nth-child(3) { animation-delay: 0.3s; }
+                .stats-grid .stat-card:nth-child(4) { animation-delay: 0.4s; }
+
+                .table tbody tr { animation: fadeInUp 0.5s ease-out forwards; opacity: 0; }
+                .table tbody tr:nth-child(1) { animation-delay: 0.5s; }
+                .table tbody tr:nth-child(2) { animation-delay: 0.6s; }
+                .table tbody tr:n-th-child(3) { animation-delay: 0.7s; }
+                .table tbody tr:nth-child(4) { animation-delay: 0.8s; }
+                .table tbody tr:nth-child(5) { animation-delay: 0.9s; }
+
+                .activity-item { animation: fadeInUp 0.5s ease-out forwards; opacity: 0; }
+                .activities-card .activity-item:nth-child(1) { animation-delay: 1.0s; }
+                .activities-card .activity-item:nth-child(2) { animation-delay: 1.1s; }
+                .activities-card .activity-item:nth-child(3) { animation-delay: 1.2s; }
+                .activities-card .activity-item:nth-child(4) { animation-delay: 1.3s; }
+                .activities-card .activity-item:nth-child(5) { animation-delay: 1.4s; }
+                .activities-card .activity-item:nth-child(6) { animation-delay: 1.5s; }
+                .activities-card .activity-item:nth-child(7) { animation-delay: 1.6s; }
+                .activities-card .activity-item:nth-child(8) { animation-delay: 1.7s; }
+            </style>
             <!-- Stats Grid -->
             <div class="stats-grid">
                 <a href="requests.php" class="stat-card">
                     <div class="stat-icon primary">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="24" height="24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M6 22q-.825 0-1.413-.588T4 20V4q0-.825.588-1.413T6 2h8l6 6v12q0 .825-.588 1.413T18 22H6Zm7-13V4H6v16h12V9h-5ZM6 4v5-5 16V4Z"/>
                         </svg>
                     </div>
                     <div class="stat-label">Total Requests</div>
@@ -866,36 +928,27 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
                 
                 <a href="requests.php?filter=pending" class="stat-card">
                     <div class="stat-icon warning">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="24" height="24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 22q-2.075 0-3.9-.788t-3.175-2.137q-1.35-1.35-2.137-3.175T2 12q0-2.075.788-3.9t2.137-3.175q1.35-1.35 3.175-2.138T12 2q2.075 0 3.9.787t3.175 2.138q1.35 1.35 2.138 3.175T22 12q0 2.075-.788 3.9t-2.137 3.175q-1.35 1.35-3.175 2.138T12 22Zm0-2q3.35 0 5.675-2.325T20 12q0-3.35-2.325-5.675T12 4Q8.65 4 6.325 6.325T4 12q0 3.35 2.325 5.675T12 20Zm-.75-2.55v-5.5q0-.425.288-.713T12 11.45q.425 0 .713.288T13.05 12.45v4.8h-1.8Zm.75-8.4q.55 0 .925-.375t.375-.925q0-.55-.375-.925T12 7.35q-.55 0-.925.375t-.375.925q0 .55.375.925t.925.375Z"/>
                         </svg>
                     </div>
                     <div class="stat-label">Pending</div>
                     <div class="stat-value"><?php echo $stats['pending']; ?></div>
                 </a>
                 
-                <a href="requests.php?filter=approved" class="stat-card">
-                    <div class="stat-icon success">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="24" height="24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                    </div>
-                    <div class="stat-label">Approved</div>
-                    <div class="stat-value"><?php echo $stats['approved']; ?></div>
-                </a>
-                
                 <a href="users.php" class="stat-card">
                     <div class="stat-icon info">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="24" height="24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 12q-1.65 0-2.825-1.175T8 8q0-1.65 1.175-2.825T12 4q1.65 0 2.825 1.175T16 8q0 1.65-1.175 2.825T12 12Zm-8 8v-2.8q0-.85.438-1.563t1.112-1.087q1.4-1.05 3.1-1.575T12 12.4q1.85 0 3.55.525t3.1 1.575q.675.375 1.112 1.088T20 17.2V20H4Z"/>
                         </svg>
                     </div>
                     <div class="stat-label">Total Users</div>
                     <div class="stat-value"><?php echo $stats['users']; ?></div>
                 </a>
+
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                <div>
                 <!-- Recent Requests -->
                 <div class="card">
                     <div class="card-header">
@@ -917,7 +970,7 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
                                 <tr onclick="window.location.href='view_request_admin.php?id=<?php echo $request['id']; ?>'">
                                     <td><strong><?php echo htmlspecialchars($request['control_number']); ?></strong></td>
                                     <td><?php echo htmlspecialchars($request['user_name']); ?></td>
-                                    <td><?php echo htmlspecialchars($request['department']); ?></td>
+                                    <td><?php echo htmlspecialchars(shortenDepartment($request['department'])); ?></td>
                                     <td>
                                         <span class="badge <?php echo strtolower($request['status']); ?>">
                                             <?php echo ucfirst($request['status']); ?>
@@ -931,12 +984,12 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
                 </div>
 
                 <!-- Recent Activities -->
-                <div class="card">
+                <div class="card activities-card">
                     <div class="card-header">
                         <h2 class="card-title">Recent Activities</h2>
                         <span class="card-link">Last 7 days</span>
                     </div>
-                    <div style="max-height: 400px; overflow-y: auto;">
+                    <div>
                         <?php 
                         // Reset pointer for activities
                         $recent_activities_display->data_seek(0);
@@ -945,38 +998,16 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
                                 <div class="activity-item" onclick="handleNotificationClick('<?php echo $activity['type']; ?>', <?php echo $activity['id']; ?>)">
                                     <div class="activity-icon <?php echo $activity['activity_type']; ?>">
                                         <?php if ($activity['type'] == 'user_registered'): ?>
-                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
-                                            </svg>
+                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m-3-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
                                         <?php elseif ($activity['type'] == 'request_submitted'): ?>
-                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                                            </svg>
+                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                                         <?php else: ?>
-                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                            </svg>
+                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                         <?php endif; ?>
                                     </div>
                                     <div class="activity-content">
                                         <div class="activity-message"><?php echo htmlspecialchars($activity['message']); ?></div>
-                                        <div class="activity-time">
-                                            <?php 
-                                            $time_diff = time() - strtotime($activity['timestamp']);
-                                            if ($time_diff < 60) {
-                                                echo 'Just now';
-                                            } elseif ($time_diff < 3600) {
-                                                $minutes = floor($time_diff / 60);
-                                                echo $minutes . ' minute' . ($minutes > 1 ? 's' : '') . ' ago';
-                                            } elseif ($time_diff < 86400) {
-                                                $hours = floor($time_diff / 3600);
-                                                echo $hours . ' hour' . ($hours > 1 ? 's' : '') . ' ago';
-                                            } else {
-                                                $days = floor($time_diff / 86400);
-                                                echo $days . ' day' . ($days > 1 ? 's' : '') . ' ago';
-                                            }
-                                            ?>
-                                        </div>
+                                        <div class="activity-time" data-timestamp="<?php echo htmlspecialchars($activity['timestamp']); ?>"></div>
                                     </div>
                                 </div>
                             <?php endwhile; ?>
@@ -1025,6 +1056,53 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         document.addEventListener('DOMContentLoaded', function() {
             const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
             updateThemeIcons(currentTheme);
+
+            // Stat card number count-up animation
+            const statValues = document.querySelectorAll('.stat-value');
+            statValues.forEach(statValue => {
+                const finalValue = parseInt(statValue.textContent, 10);
+                if (isNaN(finalValue)) return;
+
+                let startTimestamp = null;
+                const duration = 1500; // Animation duration in milliseconds
+
+                const step = (timestamp) => {
+                    if (!startTimestamp) startTimestamp = timestamp;
+                    const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                    const currentValue = Math.floor(progress * finalValue);
+                    statValue.textContent = currentValue.toLocaleString();
+
+                    if (progress < 1) {
+                        window.requestAnimationFrame(step);
+                    }
+                };
+                window.requestAnimationFrame(step);
+            });
+
+            // Format timestamps
+            function formatTimeAgo(timestamp) {
+                const date = new Date(timestamp);
+                const now = new Date();
+                const seconds = Math.floor((now - date) / 1000);
+
+                if (seconds < 60) return 'Just now';
+                const minutes = Math.floor(seconds / 60);
+                if (minutes < 60) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+                const hours = Math.floor(minutes / 60);
+                if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+                const days = Math.floor(hours / 24);
+                return `${days} day${days > 1 ? 's' : ''} ago`;
+            }
+
+            function updateTimestamps() {
+                document.querySelectorAll('.activity-time[data-timestamp]').forEach(el => {
+                    const timestamp = el.getAttribute('data-timestamp');
+                    el.textContent = formatTimeAgo(timestamp);
+                });
+            }
+
+            updateTimestamps();
+            setInterval(updateTimestamps, 60000); // Update every minute
         });
         
         // Notification dropdown

@@ -1,5 +1,6 @@
 <?php
 session_start();
+require_once 'functions.php';
 require_once 'theme_loader.php';
 require_once 'config.php';
 
@@ -10,18 +11,13 @@ if (!isset($_SESSION['user_id'])) {
 
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
-// Get theme directly from database as fallback
-$theme = 'light';
+// Get user details for recommendations
 $user_id = $_SESSION['user_id'];
-$sql = "SELECT theme FROM user_preferences WHERE user_id = ?";
+$sql = "SELECT department, program FROM users WHERE id = ?";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
-$result = $stmt->get_result();
-if ($result->num_rows > 0) {
-    $prefs = $result->fetch_assoc();
-    $theme = $prefs['theme'];
-}
+$user = $stmt->get_result()->fetch_assoc();
 
 // Use the theme
 $logo_file = $GLOBALS['logo_file'];
@@ -29,6 +25,7 @@ $portal_name = $GLOBALS['portal_name'];
 
 // Get facilities from database
 $facilities = [];
+$all_amenities = [];
 $sql = "SELECT * FROM facilities WHERE is_active = TRUE ORDER BY name";
 $result = $conn->query($sql);
 if ($result->num_rows > 0) {
@@ -38,13 +35,16 @@ if ($result->num_rows > 0) {
             'name' => $row['name'],
             'capacity' => $row['capacity'],
             'description' => $row['description'],
-            'amenities' => json_decode($row['amenities'], true),
+            'amenities' => json_decode($row['amenities'], true) ?: [],
             'image' => $row['image_path']
         ];
+        $all_amenities = array_merge($all_amenities, $facilities[count($facilities) - 1]['amenities']);
     }
 }
-?>
+$all_amenities = array_unique($all_amenities);
+sort($all_amenities);
 
+?>
 <!DOCTYPE html>
 <html lang="en" data-theme="<?php echo htmlspecialchars($theme); ?>">
 <head>
@@ -52,82 +52,81 @@ if ($result->num_rows > 0) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Browse Facilities - MCNP Service Portal</title>
     <style>
+        /* General Styles */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
         
+        @font-face {
+            font-family: 'Geist Sans';
+            src: url('node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2') format('woff2');
+            font-weight: 100 900;
+            font-style: normal;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f8f9fa;
+            font-family: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: var(--text-primary);
+            background: var(--bg-secondary);
         }
         
         :root {
-            --bg-primary: #ffffff;
-            --bg-secondary: #f8f9fa;
+            --bg-primary: #ffffff; /* Card and Header background */
+            --bg-secondary: #fdfaf6; /* Main page background */
             --text-primary: #1a1a1a;
-            --text-secondary: #6b7280;
+            --text-secondary: #71717a;
             --border-color: #e5e7eb;
+            --accent-color: #6366f1;
         }
 
         [data-theme="dark"] {
-            --bg-primary: #1a1a1a;
-            --bg-secondary: #2d2d2d;
+            --bg-primary: #171717; /* Card and Header background */
+            --bg-secondary: #0a0a0a; /* Main page background */
             --text-primary: #ffffff;
             --text-secondary: #9ca3af;
             --border-color: #404040;
+            --accent-color: #818cf8;
         }
 
-        [data-theme="dark"] body {
-            background: var(--bg-secondary);
-            color: var(--text-primary);
+        /* New Theme Palettes */
+        [data-theme="blue"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f0f9ff; /* sky-50 */
+            --text-primary: #0c4a6e; /* sky-900 */
+            --text-secondary: #38bdf8; /* sky-400 */
+            --border-color: #e0f2fe; /* sky-100 */
+            --accent-color: #0ea5e9; /* sky-500 */
         }
 
-        [data-theme="dark"] .header {
-            background: var(--bg-primary);
-            color: var(--text-primary);
+        [data-theme="pink"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #fdf2f8; /* pink-50 */
+            --text-primary: #831843; /* pink-900 */
+            --text-secondary: #f472b6; /* pink-400 */
+            --border-color: #fce7f3; /* pink-100 */
+            --accent-color: #ec4899; /* pink-500 */
         }
 
-        [data-theme="dark"] .header-brand .brand-title {
-            color: var(--text-primary);
+        [data-theme="green"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f0fdf4; /* green-50 */
+            --text-primary: #14532d; /* green-900 */
+            --text-secondary: #4ade80; /* green-400 */
+            --border-color: #dcfce7; /* green-100 */
+            --accent-color: #22c55e; /* green-500 */
         }
 
-        [data-theme="dark"] .header-brand .brand-subtitle {
-            color: var(--text-secondary);
+        [data-theme="purple"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f3ff; /* violet-50 */
+            --text-primary: #4c1d95; /* violet-900 */
+            --text-secondary: #a78bfa; /* violet-400 */
+            --border-color: #ede9fe; /* violet-100 */
+            --accent-color: #8b5cf6; /* violet-500 */
         }
-
-        [data-theme="dark"] .btn-back {
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            border-color: var(--border-color);
-        }
-
-        [data-theme="dark"] .container {
-            background: var(--bg-secondary);
-        }
-
-        [data-theme="dark"] .page-header h1 {
-            color: var(--text-primary);
-        }
-
-        [data-theme="dark"] .page-header p {
-            color: var(--text-secondary);
-        }
-
-        [data-theme="dark"] .facility-card {
-            background: var(--bg-primary);
-            color: var(--text-primary);
-        }
-
-        [data-theme="dark"] .facility-content h3 {
-            color: var(--text-primary);
-        }
-
-        [data-theme="dark"] .facility-description {
-            color: var(--text-secondary);
-        }
-        
+        /* Header */
         .header {
             background: white;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
@@ -135,6 +134,7 @@ if ($result->num_rows > 0) {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            background-color: var(--bg-primary);
         }
         
         .header-brand {
@@ -156,14 +156,14 @@ if ($result->num_rows > 0) {
         .header-brand .brand-title {
             font-size: 16px;
             font-weight: 700;
-            color: #1a1a1a;
+            color: var(--text-primary);
         }
         
         .header-brand .brand-subtitle {
             font-size: 12px;
-            color: #6b7280;
+            color: var(--text-secondary);
         }
-        
+
         .btn-back {
             padding: 8px 16px;
             background: white;
@@ -172,11 +172,14 @@ if ($result->num_rows > 0) {
             border-radius: 6px;
             text-decoration: none;
             font-weight: 500;
+            background-color: var(--bg-primary);
+            border-color: var(--border-color);
+            color: var(--text-primary);
             font-size: 14px;
         }
         
         .btn-back:hover {
-            background: #f9fafb;
+            background: var(--bg-secondary);
         }
         
         .container {
@@ -191,15 +194,88 @@ if ($result->num_rows > 0) {
         
         .page-header h1 {
             font-size: 28px;
-            color: #1a1a1a;
+            color: var(--text-primary);
             margin-bottom: 8px;
         }
         
         .page-header p {
-            color: #6b7280;
+            color: var(--text-secondary);
             font-size: 15px;
         }
-        
+
+        /* Search and Filters */
+        .controls-container {
+            background: var(--bg-primary);
+            padding: 16px;
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 24px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .search-container { position: relative; flex-grow: 1; }
+        #facilitySearch {
+            width: 100%;
+            padding: 14px 20px 14px 48px;
+            font-size: 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            transition: all 0.3s;
+        }
+
+        #facilitySearch:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(0,0,0,0.05);
+        }
+
+        .search-container svg {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+        }
+
+        .filter-group { display: flex; gap: 12px; flex-wrap: wrap; }
+
+        .filter-select {
+            padding: 14px 16px;
+            font-size: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            cursor: pointer;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 0.7rem center;
+            background-repeat: no-repeat;
+            background-size: 1.2em;
+            padding-right: 2.5rem;
+        }
+        .filter-select:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        /* Section Headers */
+        .section-title {
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-top: 40px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        /* Facilities Grid */
         .facilities-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -207,17 +283,40 @@ if ($result->num_rows > 0) {
         }
         
         .facility-card {
-            background: white;
-            border-radius: 12px;
+            background: var(--bg-primary);
+            border-radius: 20px;
             overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
+            border: 1px solid var(--border-color); 
+            animation: fadeInUp 0.5s ease-out forwards;
+            opacity: 0;
+        }
+
+        .facility-card.hidden {
+            opacity: 0;
+            transform: scale(0.95);
+            height: 0;
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
         }
         
         .facility-card:hover {
             transform: translateY(-8px);
-            box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.07);
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
         
         .facility-image {
@@ -237,22 +336,22 @@ if ($result->num_rows > 0) {
         
         .facility-content h3 {
             font-size: 18px;
-            color: #1a1a1a;
+            color: var(--text-primary);
             margin-bottom: 8px;
         }
         
         .facility-capacity {
             display: inline-block;
-            padding: 4px 10px;
-            background: #f3f4f6;
+            padding: 6px 12px;
+            background: var(--bg-secondary);
             border-radius: 12px;
             font-size: 12px;
-            color: #6b7280;
+            color: var(--text-secondary);
             margin-bottom: 12px;
         }
         
         .facility-description {
-            color: #6b7280;
+            color: var(--text-secondary);
             font-size: 14px;
             line-height: 1.6;
             margin-bottom: 16px;
@@ -266,9 +365,9 @@ if ($result->num_rows > 0) {
         }
         
         .amenity-tag {
-            padding: 4px 10px;
-            background: #e0f2fe;
-            color: #075985;
+            padding: 6px 12px;
+            background: #e0f2fe; /* sky-100 */
+            color: #075985; /* sky-800 */
             border-radius: 12px;
             font-size: 11px;
             font-weight: 500;
@@ -277,23 +376,25 @@ if ($result->num_rows > 0) {
         .btn-book-facility {
             width: 100%;
             padding: 12px;
-            background: #1a1a1a;
-            color: white;
+            background: var(--text-primary);
+            color: var(--bg-primary);
             border: none;
-            border-radius: 6px;
+            border-radius: 8px;
             font-weight: 600;
             cursor: pointer;
             text-decoration: none;
             display: block;
+            min-height: 44px;
             text-align: center;
             transition: all 0.2s;
         }
         
         .btn-book-facility:hover {
-            background: #000;
+            opacity: 0.8;
             transform: translateY(-2px);
         }
         
+        /* Modal Styles */
         .modal {
             display: none;
             position: fixed;
@@ -304,7 +405,7 @@ if ($result->num_rows > 0) {
             height: 100%;
             background: rgba(0, 0, 0, 0.7);
             backdrop-filter: blur(4px);
-            animation: fadeIn 0.3s ease;
+            animation: fadeIn 0.3s ease forwards;
         }
         
         @keyframes fadeIn {
@@ -313,11 +414,12 @@ if ($result->num_rows > 0) {
         }
         
         .modal-content {
-            background: white;
-            margin: 5% auto;
+            background: var(--bg-primary);
+            margin: 8% auto;
             padding: 0;
-            border-radius: 16px;
+            border-radius: 20px;
             max-width: 700px;
+            border: 1px solid var(--border-color);
             width: 90%;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             animation: slideUp 0.3s ease;
@@ -347,22 +449,23 @@ if ($result->num_rows > 0) {
         
         .modal-header {
             display: flex;
-            justify-content: space-between;
+            justify-content: flex-end;
             align-items: flex-start;
             margin-bottom: 16px;
         }
         
         .modal-header h2 {
             font-size: 24px;
-            color: #1a1a1a;
-            margin: 0;
+            color: var(--text-primary);
+            margin: 0 auto 0 0; /* Center title, push close button right */
         }
         
         .close-modal {
-            background: #f3f4f6;
+            background: var(--bg-secondary);
             border: none;
             width: 36px;
             height: 36px;
+            color: var(--text-secondary);
             border-radius: 50%;
             cursor: pointer;
             display: flex;
@@ -372,22 +475,23 @@ if ($result->num_rows > 0) {
         }
         
         .close-modal:hover {
-            background: #e5e7eb;
+            background: var(--border-color);
+            color: var(--text-primary);
             transform: rotate(90deg);
         }
         
         .modal-capacity {
             display: inline-block;
             padding: 6px 12px;
-            background: #f3f4f6;
-            border-radius: 12px;
+            background: var(--bg-secondary);
+            border-radius: 999px; /* Pill shape */
             font-size: 14px;
-            color: #6b7280;
+            color: var(--text-secondary);
             margin-bottom: 16px;
         }
         
         .modal-description {
-            color: #4b5563;
+            color: var(--text-secondary);
             font-size: 16px;
             line-height: 1.7;
             margin-bottom: 24px;
@@ -402,8 +506,8 @@ if ($result->num_rows > 0) {
         
         .modal-amenity-tag {
             padding: 8px 14px;
-            background: #e0f2fe;
-            color: #075985;
+            background: #e0f2fe; /* sky-100 */
+            color: #075985; /* sky-800 */
             border-radius: 12px;
             font-size: 13px;
             font-weight: 500;
@@ -412,18 +516,19 @@ if ($result->num_rows > 0) {
         .modal-book-btn {
             width: 100%;
             padding: 14px;
-            background: #1a1a1a;
-            color: white;
+            background: var(--text-primary);
+            color: var(--bg-primary);
             border: none;
-            border-radius: 8px;
+            border-radius: 12px;
             font-weight: 600;
             font-size: 16px;
             cursor: pointer;
             transition: all 0.2s;
+            min-height: 48px;
         }
         
         .modal-book-btn:hover {
-            background: #000;
+            opacity: 0.8;
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
@@ -431,6 +536,11 @@ if ($result->num_rows > 0) {
         /* Mobile Responsive Styles */
         @media (max-width: 768px) {
             .header {
+                position: sticky;
+                top: 0;
+                z-index: 10;
+            }
+            .controls-container {
                 padding: 12px 16px;
             }
             
@@ -469,7 +579,7 @@ if ($result->num_rows > 0) {
             }
             
             .facility-card {
-                border-radius: 8px;
+                border-radius: 18px;
             }
             
             .facility-image {
@@ -487,7 +597,7 @@ if ($result->num_rows > 0) {
             
             .facility-capacity {
                 font-size: 10px;
-                padding: 3px 8px;
+                padding: 4px 10px;
                 margin-bottom: 8px;
             }
             
@@ -507,7 +617,7 @@ if ($result->num_rows > 0) {
             }
             
             .amenity-tag {
-                font-size: 9px;
+                font-size: 10px;
                 padding: 2px 6px;
             }
             
@@ -558,8 +668,8 @@ if ($result->num_rows > 0) {
             }
             
             .facilities-grid {
-                grid-template-columns: 1fr;
-                gap: 12px;
+                grid-template-columns: repeat(2, 1fr); /* Changed to 2 columns for mobile */
+                gap: 16px;
             }
             
             .facility-image {
@@ -567,12 +677,17 @@ if ($result->num_rows > 0) {
             }
             
             .facility-content h3 {
-                font-size: 16px;
+                font-size: 14px; /* Adjusted for smaller cards */
             }
             
             .facility-description {
-                font-size: 12px;
+                font-size: 12px; /* Adjusted for smaller cards */
                 -webkit-line-clamp: 3;
+            }
+
+            .facilities-grid {
+                grid-template-columns: 1fr; /* Use a single column on small phones */
+                gap: 16px;
             }
             
             .modal-content {
@@ -589,7 +704,7 @@ if ($result->num_rows > 0) {
             }
             
             .modal-header h2 {
-                font-size: 18px;
+                font-size: 20px;
             }
             
             .modal-description {
@@ -600,6 +715,19 @@ if ($result->num_rows > 0) {
                 font-size: 12px;
                 padding: 6px 10px;
             }
+
+            .controls-container {
+                padding: 12px;
+            }
+
+            .filter-group {
+                flex-direction: column; /* Stack filters vertically */
+                width: 100%;
+            }
+
+            .filter-select {
+                width: 100%; /* Make selects full-width */
+            }
         }
 
         @media (min-width: 481px) and (max-width: 768px) {
@@ -608,7 +736,7 @@ if ($result->num_rows > 0) {
             }
             
             .facility-image {
-                height: 130px;
+                height: 150px;
             }
         }
 
@@ -617,8 +745,8 @@ if ($result->num_rows > 0) {
                 grid-template-columns: repeat(3, 1fr);
             }
             
-            .facility-image {
-                height: 160px;
+            .facility-image { 
+                height: 180px;
             }
         }
     </style>
@@ -640,13 +768,43 @@ if ($result->num_rows > 0) {
     <div class="container">
         <div class="page-header">
             <h1>Available Facilities</h1>
-            <p>Browse and book our facilities for your events and activities</p>
+            <p>Find the perfect space for your events and activities.</p>
         </div>
 
-        <div class="facilities-grid">
+        <div class="controls-container">
+            <div class="search-container">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                <input type="text" id="facilitySearch" placeholder="Search by name or description...">
+            </div>
+            <div class="filter-group">
+                <select id="capacityFilter" class="filter-select">
+                    <option value="any">Any Capacity</option>
+                    <option value="1-50">1-50 People</option>
+                    <option value="51-100">51-100 People</option>
+                    <option value="101-200">101-200 People</option>
+                    <option value="201+">200+ People</option>
+                </select>
+                <select id="sortFilter" class="filter-select">
+                    <option value="name-asc">Sort by Name (A-Z)</option>
+                    <option value="name-desc">Sort by Name (Z-A)</option>
+                    <option value="cap-asc">Capacity (Low-High)</option>
+                    <option value="cap-desc">Capacity (High-Low)</option>
+                </select>
+                <select id="amenityFilter" class="filter-select">
+                    <option value="any">All Amenities</option>
+                    <?php foreach ($all_amenities as $amenity): ?>
+                        <option value="<?php echo htmlspecialchars($amenity); ?>"><?php echo htmlspecialchars($amenity); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        </div>
+
+        <div class="facilities-grid" id="facilities-grid">
             <?php if (isset($facilities) && is_array($facilities) && count($facilities) > 0): ?>
                 <?php foreach ($facilities as $index => $facility): ?>
-                    <div class="facility-card" onclick="openModal(<?php echo $index; ?>)">
+                    <div class="facility-card" data-index="<?php echo $facility['id']; ?>" 
+                         data-name="<?php echo htmlspecialchars(strtolower($facility['name'])); ?>" 
+                         data-capacity="<?php echo htmlspecialchars($facility['capacity']); ?>" style="animation-delay: <?php echo $index * 0.05; ?>s" onclick="openModal(<?php echo $facility['id']; ?>)">
                         <img src="<?php echo htmlspecialchars($facility['image']); ?>" alt="<?php echo htmlspecialchars($facility['name']); ?>" class="facility-image">
                         <div class="facility-content">
                             <h3><?php echo htmlspecialchars($facility['name']); ?></h3>
@@ -654,15 +812,17 @@ if ($result->num_rows > 0) {
                                 <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: inline-block; vertical-align: middle; margin-right: 4px;">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
                                 </svg>
-                                <?php echo htmlspecialchars($facility['capacity']); ?>
+                                <?php echo htmlspecialchars($facility['capacity']); ?> People
                             </span>
                             <p class="facility-description"><?php echo htmlspecialchars(substr($facility['description'], 0, 80)) . '...'; ?></p>
                             <div class="facility-amenities">
-                                <?php foreach (array_slice($facility['amenities'], 0, 2) as $amenity): ?>
-                                    <span class="amenity-tag"><?php echo htmlspecialchars($amenity); ?></span>
-                                <?php endforeach; ?>
-                                <?php if (count($facility['amenities']) > 2): ?>
-                                    <span class="amenity-tag">+<?php echo count($facility['amenities']) - 2; ?> more</span>
+                                <?php if (!empty($facility['amenities'])): ?>
+                                    <?php foreach (array_slice($facility['amenities'], 0, 2) as $amenity): ?>
+                                        <span class="amenity-tag"><?php echo htmlspecialchars($amenity); ?></span>
+                                    <?php endforeach; ?>
+                                    <?php if (count($facility['amenities']) > 2): ?>
+                                        <span class="amenity-tag">+<?php echo count($facility['amenities']) - 2; ?> more</span>
+                                    <?php endif; ?>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -673,6 +833,11 @@ if ($result->num_rows > 0) {
                     <p>No facilities available at the moment.</p>
                 </div>
             <?php endif; ?>
+        </div>
+
+        <div id="noResultsMessage" style="display: none; text-align: center; padding: 60px 20px; color: var(--text-secondary);">
+            <p style="font-size: 18px; font-weight: 500;">No facilities found</p>
+            <p style="font-size: 14px;">Try adjusting your search terms.</p>
         </div>
     </div>
 
@@ -697,12 +862,16 @@ if ($result->num_rows > 0) {
     </div>
 
     <script>
-        const facilities = <?php echo isset($facilities) ? json_encode($facilities) : '[]'; ?>;
+        const allFacilities = <?php echo json_encode($facilities); ?>;
         
-        function openModal(index) {
-            if (!facilities || facilities.length === 0) return;
-            
-            const facility = facilities[index];
+        function openModal(facilityId) {
+            const facility = allFacilities.find(f => f.id == facilityId);
+
+            if (!facility) {
+                console.error("Facility not found for ID:", facilityId);
+                return;
+            }
+
             const modal = document.getElementById('facilityModal');
             
             document.getElementById('modalImage').src = facility.image;
@@ -746,6 +915,99 @@ if ($result->num_rows > 0) {
                 closeModal();
             }
         });
+
+        // --- NEW FILTERING LOGIC ---
+        const searchInput = document.getElementById('facilitySearch');
+        const capacityFilter = document.getElementById('capacityFilter');
+        const amenityFilter = document.getElementById('amenityFilter');
+        const sortFilter = document.getElementById('sortFilter');
+        const noResultsMessage = document.getElementById('noResultsMessage');
+        const facilitiesGrid = document.getElementById('facilities-grid');
+
+        function filterFacilities() {
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            const selectedCapacity = capacityFilter.value; 
+            const selectedAmenity = amenityFilter.value;
+            let visibleCount = 0;
+
+            const allCards = document.querySelectorAll('.facility-card');
+
+            allCards.forEach(card => {
+                const facilityId = card.dataset.index;
+                const facility = allFacilities.find(f => f.id == facilityId);
+
+                if (!facility) return;
+
+                // Search term match
+                const name = facility.name.toLowerCase();
+                const description = facility.description.toLowerCase();
+                const searchMatch = name.includes(searchTerm) || description.includes(searchTerm);
+
+                // Capacity match
+                let capacityMatch = true;
+                if (selectedCapacity !== 'any') {
+                    const capacity = parseInt(facility.capacity, 10);
+                    if (selectedCapacity === '1-50') {
+                        capacityMatch = capacity >= 1 && capacity <= 50;
+                    } else if (selectedCapacity === '51-100') {
+                        capacityMatch = capacity >= 51 && capacity <= 100;
+                    } else if (selectedCapacity === '101-200') {
+                        capacityMatch = capacity >= 101 && capacity <= 200;
+                    } else if (selectedCapacity === '201+') {
+                        capacityMatch = capacity >= 201;
+                    }
+                }
+
+                // Amenity match
+                let amenityMatch = true;
+                if (selectedAmenity !== 'any') {
+                    amenityMatch = facility.amenities.includes(selectedAmenity);
+                }
+                
+                if (searchMatch && capacityMatch && amenityMatch) {
+                    card.classList.remove('hidden');
+                    card.style.display = 'block';
+                    visibleCount++;
+                } else {
+                    card.classList.add('hidden');
+                    card.style.display = 'none';
+                }
+            });
+
+            noResultsMessage.style.display = visibleCount === 0 ? 'block' : 'none';
+        }
+        
+        function sortFacilities() {
+            const sortValue = sortFilter.value;
+            const cards = Array.from(facilitiesGrid.children);
+
+            cards.sort((a, b) => {
+                const nameA = a.dataset.name;
+                const nameB = b.dataset.name;
+                const capA = parseInt(a.dataset.capacity, 10);
+                const capB = parseInt(b.dataset.capacity, 10);
+
+                switch (sortValue) {
+                    case 'name-asc':
+                        return nameA.localeCompare(nameB);
+                    case 'name-desc':
+                        return nameB.localeCompare(nameA);
+                    case 'cap-asc':
+                        return capA - capB;
+                    case 'cap-desc':
+                        return capB - capA;
+                    default:
+                        return 0;
+                }
+            });
+
+            cards.forEach(card => facilitiesGrid.appendChild(card));
+        }
+
+        searchInput.addEventListener('input', filterFacilities);
+        capacityFilter.addEventListener('change', filterFacilities);
+        amenityFilter.addEventListener('change', filterFacilities);
+        sortFilter.addEventListener('change', sortFacilities);
     </script>
 </body>
 </html>

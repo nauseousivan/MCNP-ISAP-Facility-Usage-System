@@ -113,13 +113,13 @@ function getReportData($conn, $start_date, $end_date) {
                 DATE(fr.created_at) as date,
                 frd.facility_name,
                 u.name as requested_by,
-                fr.status,
-                fr.purpose,
+                fr.status as status,
+                fr.event_type as purpose,
                 fr.created_at
             FROM facility_requests fr
             JOIN facility_request_details frd ON frd.request_id = fr.id
             JOIN users u ON fr.user_id = u.id
-            WHERE DATE(fr.created_at) BETWEEN ? AND ?
+            WHERE frd.date_needed BETWEEN ? AND ?
             ORDER BY fr.created_at DESC";
     
     $stmt = $conn->prepare($sql);

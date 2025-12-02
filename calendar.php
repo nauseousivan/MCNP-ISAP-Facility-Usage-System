@@ -8,6 +8,16 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+// Handle cache clearing
+if (isset($_GET['clear_cache'])) {
+    $cache_file = 'google_calendar_cache.json';
+    if (file_exists($cache_file)) {
+        unlink($cache_file);
+    }
+    header('Location: calendar.php'); // Redirect back to the calendar
+    exit();
+}
+
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
 // Get current month and year
@@ -15,7 +25,134 @@ $month = isset($_GET['month']) ? intval($_GET['month']) : date('n');
 $year = isset($_GET['year']) ? intval($_GET['year']) : date('Y');
 $facility_filter = isset($_GET['facility']) ? $_GET['facility'] : '';
 
-$sql_year = "SELECT frd.date_needed, frd.facility_name, COUNT(*) as booking_count 
+// Function to parse iCal events with better parsing
+function parseICalEvents($ical_url) {
+    $events = [];
+    
+    try {
+        $ical_content = file_get_contents($ical_url);
+        if ($ical_content === false) {
+            error_log("Failed to fetch iCal content from: " . $ical_url);
+            return $events;
+        }
+        
+        $event = [];
+        $in_event = false;
+        
+        // Handle multi-line descriptions
+        $ical_content = preg_replace('/(DESCRIPTION):((?:[^\r\n]|\r\n\s)+)/', '$1:' . str_replace(["\r\n ", "\r\n"], ' ', '$2'), $ical_content);
+        $lines = explode("\n", $ical_content);
+
+        foreach ($lines as $line) { 
+            $line = trim($line); 
+            
+            if ($line === 'BEGIN:VEVENT') {
+                $in_event = true;
+                $event = [];
+                continue;
+            }
+
+            if ($line === 'END:VEVENT') {
+                $in_event = false;
+                if (isset($event['DTSTART']) && isset($event['SUMMARY'])) {
+                    // New time parsing logic
+                    $is_all_day = strpos($event['DTSTART'], 'T') === false;
+
+                    if (isset($event['DTSTART'])) {
+                        $dtstart_obj = new DateTime($event['DTSTART']);
+                        $dtstart_obj->setTimezone(new DateTimeZone('Asia/Manila'));
+                        $event['START_TIME'] = $is_all_day ? '00:00' : $dtstart_obj->format('H:i');
+                    }
+                    
+                    if (isset($event['DTEND'])) {
+                        $dtend_obj = new DateTime($event['DTEND']);
+                        $dtend_obj->setTimezone(new DateTimeZone('Asia/Manila'));
+                        $event['END_TIME'] = $is_all_day ? '23:59' : $dtend_obj->format('H:i');
+                    }
+                    
+                    if (isset($event['START_TIME']) && isset($event['END_TIME'])) {
+                        $start_formatted = date("g:i A", strtotime($event['START_TIME']));
+                        $end_formatted = date("g:i A", strtotime($event['END_TIME']));
+                        $event['TIME_DISPLAY'] = $is_all_day 
+                            ? 'All day' 
+                            : $start_formatted . ' to ' . $end_formatted;
+                    } else {
+                        $event['TIME_DISPLAY'] = 'All day';
+                    }
+                    
+                    $events[] = $event;
+                }
+                continue;
+            }
+            
+            if ($in_event) {
+                if (strpos($line, 'DTSTART:') === 0) {
+                    $event['DTSTART'] = substr($line, 8);
+                } else if (strpos($line, 'DTEND:') === 0) {
+                    $event['DTEND'] = substr($line, 6);
+                } else if (strpos($line, 'SUMMARY:') === 0) {
+                    $event['SUMMARY'] = substr($line, 8);
+                } elseif (strpos($line, 'DESCRIPTION:') === 0) {
+                    $event['DESCRIPTION'] = substr($line, 12);
+                } elseif (strpos($line, 'LOCATION:') === 0) {
+                    $event['LOCATION'] = substr($line, 9);
+                }
+            }
+        }
+    } catch (Exception $e) {
+        error_log("Error fetching or parsing iCal: " . $e->getMessage());
+    }
+    
+    return $events;
+}
+
+// Function to get Google Calendar events with caching
+function getGoogleCalendarEvents() {
+    $cache_file = 'google_calendar_cache.json';
+    $cache_time = 2 * 60; // 2 mins
+    $google_calendar_url = 'https://calendar.google.com/calendar/ical/cd477b19defcb0f4ea254186310b038c9fca36d0b07362babd5521b22d9a29b9%40group.calendar.google.com/public/basic.ics';
+    
+    // Check if cache exists and is fresh
+    if (file_exists($cache_file) && (time() - filemtime($cache_file)) < $cache_time) {
+        return json_decode(file_get_contents($cache_file), true);
+    }
+    
+    // Fetch fresh data
+    $events = parseICalEvents($google_calendar_url);
+    
+    // Save to cache
+    file_put_contents($cache_file, json_encode($events));
+    
+    return $events;
+}
+
+// Get Google Calendar events
+$google_events = getGoogleCalendarEvents();
+
+// Convert Google Calendar events to the same format as facility bookings
+$google_calendar_bookings = [];
+foreach ($google_events as $event) {
+    if (isset($event['DTSTART'])) {
+        $date = substr($event['DTSTART'], 0, 8); // Get YYYYMMDD part
+        $formatted_date = substr($date, 0, 4) . '-' . substr($date, 4, 2) . '-' . substr($date, 6, 2);
+        
+        if (!isset($google_calendar_bookings[$formatted_date])) {
+            $google_calendar_bookings[$formatted_date] = [];
+        }
+        $google_calendar_bookings[$formatted_date][] = [
+            'type' => 'google_event',
+            'summary' => $event['SUMMARY'] ?? 'Google Calendar Event',
+            'description' => $event['DESCRIPTION'] ?? '',
+            'location' => $event['LOCATION'] ?? '',
+            'time_display' => $event['TIME_DISPLAY'] ?? 'All day',
+            'start_time' => $event['START_TIME'] ?? '00:00',
+            'end_time' => $event['END_TIME'] ?? '23:59'
+        ];
+    }
+}
+
+// Get detailed facility bookings with time information
+$sql_year = "SELECT frd.date_needed, frd.facility_name, frd.time_needed, frd.total_hours, frd.total_participants, frd.remarks, fr.event_type
         FROM facility_request_details frd 
         JOIN facility_requests fr ON frd.request_id = fr.id 
         WHERE fr.status = 'approved' 
@@ -25,7 +162,7 @@ if ($facility_filter) {
     $sql_year .= " AND frd.facility_name = ?";
 }
 
-$sql_year .= " GROUP BY frd.date_needed, frd.facility_name";
+$sql_year .= " ORDER BY frd.date_needed, frd.facility_name";
 
 $stmt_year = $conn->prepare($sql_year);
 if ($facility_filter) {
@@ -37,14 +174,32 @@ $stmt_year->execute();
 $year_bookings_result = $stmt_year->get_result();
 
 $year_bookings = [];
+$year_bookings_details = [];
 while ($row = $year_bookings_result->fetch_assoc()) {
-    if (!isset($year_bookings[$row['date_needed']])) {
-        $year_bookings[$row['date_needed']] = 0;
+    $date = $row['date_needed'];
+    
+    if (!isset($year_bookings[$date])) {
+        $year_bookings[$date] = 0;
     }
-    $year_bookings[$row['date_needed']] += $row['booking_count'];
+    $year_bookings[$date]++;
+    
+    if (!isset($year_bookings_details[$date])) {
+        $year_bookings_details[$date] = [];
+    }
+    
+    $year_bookings_details[$date][] = [
+        'type' => 'facility_booking',
+        'facility_name' => $row['facility_name'],
+        'time_needed' => $row['time_needed'],
+        'total_hours' => $row['total_hours'],
+        'total_participants' => $row['total_participants'],
+        'remarks' => $row['remarks'],
+        'event_type' => $row['event_type']
+    ];
 }
 
-$sql = "SELECT frd.date_needed, frd.facility_name, COUNT(*) as booking_count 
+// Get detailed bookings for current month
+$sql = "SELECT frd.date_needed, frd.facility_name, frd.time_needed, frd.total_hours, frd.total_participants, frd.remarks, fr.event_type
         FROM facility_request_details frd 
         JOIN facility_requests fr ON frd.request_id = fr.id 
         WHERE fr.status = 'approved' 
@@ -55,7 +210,7 @@ if ($facility_filter) {
     $sql .= " AND frd.facility_name = ?";
 }
 
-$sql .= " GROUP BY frd.date_needed, frd.facility_name";
+$sql .= " ORDER BY frd.date_needed, frd.facility_name";
 
 $stmt = $conn->prepare($sql);
 if ($facility_filter) {
@@ -67,11 +222,71 @@ $stmt->execute();
 $bookings_result = $stmt->get_result();
 
 $bookings = [];
+$bookings_details = [];
 while ($row = $bookings_result->fetch_assoc()) {
-    if (!isset($bookings[$row['date_needed']])) {
-        $bookings[$row['date_needed']] = 0;
+    $date = $row['date_needed'];
+    
+    if (!isset($bookings[$date])) {
+        $bookings[$date] = 0;
     }
-    $bookings[$row['date_needed']] += $row['booking_count'];
+    $bookings[$date]++;
+    
+    if (!isset($bookings_details[$date])) {
+        $bookings_details[$date] = [];
+    }
+    
+    $bookings_details[$date][] = [
+        'type' => 'facility_booking',
+        'facility_name' => $row['facility_name'],
+        'time_needed' => $row['time_needed'],
+        'total_hours' => $row['total_hours'],
+        'total_participants' => $row['total_participants'],
+        'remarks' => $row['remarks'],
+        'event_type' => $row['event_type']
+    ];
+}
+
+// Add Google Calendar events
+foreach ($google_calendar_bookings as $date => $details) {
+    if (!isset($combined_bookings[$date])) {
+        $combined_bookings[$date] = 0;
+    }
+    $combined_bookings[$date] += count($details);
+    
+    if (!isset($combined_bookings_details[$date])) {
+        $combined_bookings_details[$date] = [];
+    }
+    $combined_bookings_details[$date] = array_merge($combined_bookings_details[$date], $details);
+}
+
+// Combine facility bookings with Google Calendar events
+$combined_bookings = [];
+$combined_bookings_details = [];
+
+// Add facility bookings
+foreach ($bookings_details as $date => $details) {
+    if (!isset($combined_bookings[$date])) {
+        $combined_bookings[$date] = 0;
+    }
+    $combined_bookings[$date] += count($details);
+    
+    if (!isset($combined_bookings_details[$date])) {
+        $combined_bookings_details[$date] = [];
+    }
+    $combined_bookings_details[$date] = array_merge($combined_bookings_details[$date], $details);
+}
+
+// Add Google Calendar events
+foreach ($google_calendar_bookings as $date => $details) {
+    if (!isset($combined_bookings[$date])) {
+        $combined_bookings[$date] = 0;
+    }
+    $combined_bookings[$date] += count($details);
+    
+    if (!isset($combined_bookings_details[$date])) {
+        $combined_bookings_details[$date] = [];
+    }
+    $combined_bookings_details[$date] = array_merge($combined_bookings_details[$date], $details);
 }
 
 // Calculate calendar data
@@ -95,20 +310,45 @@ if ($next_month > 12) {
     $next_year++;
 }
 
-$holidays = [
-    '2025-01-01' => 'New Year\'s Day',
-    '2025-04-09' => 'Araw ng Kagitingan',
-    '2025-04-17' => 'Maundy Thursday',
-    '2025-04-18' => 'Good Friday',
-    '2025-05-01' => 'Labor Day',
-    '2025-06-12' => 'Independence Day',
-    '2025-08-25' => 'National Heroes Day',
-    '2025-11-01' => 'All Saints\' Day',
-    '2025-11-30' => 'Bonifacio Day',
-    '2025-12-25' => 'Christmas Day',
-    '2025-12-30' => 'Rizal Day',
-    '2025-12-31' => 'New Year\'s Eve'
-];
+function getGoogleHolidays($year) {
+    $cache_file = 'google_holidays_cache_' . $year . '.json';
+    $cache_time = 24 * 60 * 60; // 24 hours
+    $holiday_calendar_url = 'https://calendar.google.com/calendar/ical/en.philippines%23holiday%40group.v.calendar.google.com/public/basic.ics';
+
+    if (file_exists($cache_file) && (time() - filemtime($cache_file)) < $cache_time) {
+        return json_decode(file_get_contents($cache_file), true);
+    }
+
+    $holidays = [];
+    $ical_content = @file_get_contents($holiday_calendar_url);
+
+    if ($ical_content) {
+        $lines = explode("\n", $ical_content);
+        $in_event = false;
+        $current_summary = '';
+        foreach ($lines as $line) {
+            if (strpos($line, 'BEGIN:VEVENT') === 0) {
+                $in_event = true;
+            } elseif (strpos($line, 'END:VEVENT') === 0) {
+                $in_event = false;
+            } elseif ($in_event) {
+                if (strpos($line, 'DTSTART;VALUE=DATE:') === 0) {
+                    $date_str = substr($line, 19, 8);
+                    $date = DateTime::createFromFormat('Ymd', $date_str)->format('Y-m-d');
+                    if (substr($date, 0, 4) == $year) {
+                        $holidays[$date] = $current_summary;
+                    }
+                } elseif (strpos($line, 'SUMMARY:') === 0) {
+                    $current_summary = trim(substr($line, 8));
+                }
+            }
+        }
+    }
+    file_put_contents($cache_file, json_encode($holidays));
+    return $holidays;
+}
+
+$holidays = getGoogleHolidays($year);
 
 $facilities_list = [
     'HM Laboratory',
@@ -128,6 +368,7 @@ $facilities_list = [
 $logo_file = $GLOBALS['logo_file'];
 $portal_name = $GLOBALS['portal_name'];
 $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
+$current_view = $_GET['view'] ?? 'month';
 ?>
 <!DOCTYPE html>
 <html lang="en" data-theme="<?php echo htmlspecialchars($theme); ?>">
@@ -142,14 +383,78 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             box-sizing: border-box;
         }
         
+        :root {
+            --bg-primary: #ffffff; /* Card and Header background */
+            --bg-secondary: #fdfaf6; /* Main page background */
+            --text-primary: #1a1a1a;
+            --text-secondary: #71717a;
+            --border-color: #e5e7eb;
+            --accent-color: #6366f1;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #171717; /* Card and Header background */
+            --bg-secondary: #0a0a0a; /* Main page background */
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --border-color: #404040;
+            --accent-color: #818cf8;
+        }
+
+        @font-face {
+            font-family: 'Geist Sans';
+            src: url('node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2') format('woff2');
+            font-weight: 100 900;
+            font-style: normal;
+        }
+
+        /* New Theme Palettes */
+        [data-theme="blue"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f0f9ff; /* sky-50 */
+            --text-primary: #0c4a6e; /* sky-900 */
+            --text-secondary: #38bdf8; /* sky-400 */
+            --border-color: #e0f2fe; /* sky-100 */
+            --accent-color: #0ea5e9; /* sky-500 */
+        }
+
+        [data-theme="pink"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #fdf2f8; /* pink-50 */
+            --text-primary: #831843; /* pink-900 */
+            --text-secondary: #f472b6; /* pink-400 */
+            --border-color: #fce7f3; /* pink-100 */
+            --accent-color: #ec4899; /* pink-500 */
+        }
+
+        [data-theme="green"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f0fdf4; /* green-50 */
+            --text-primary: #14532d; /* green-900 */
+            --text-secondary: #4ade80; /* green-400 */
+            --border-color: #dcfce7; /* green-100 */
+            --accent-color: #22c55e; /* green-500 */
+        }
+
+        [data-theme="purple"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f3ff; /* violet-50 */
+            --text-primary: #4c1d95; /* violet-900 */
+            --text-secondary: #a78bfa; /* violet-400 */
+            --border-color: #ede9fe; /* violet-100 */
+            --accent-color: #8b5cf6; /* violet-500 */
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f8f9fa;
+            font-family: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            transition: background-color 0.3s, color 0.3s;
         }
         
         /* Header matching reference design */
         .header {
-            background: white;
+            background: var(--bg-primary);
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             padding: 16px;
             display: flex;
@@ -176,19 +481,19 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         .header-brand .brand-title {
             font-size: 16px;
             font-weight: 700;
-            color: #1a1a1a;
+            color: var(--text-primary);
         }
         
         .header-brand .brand-subtitle {
             font-size: 12px;
-            color: #6b7280;
+            color: var(--text-secondary);
         }
         
         .btn-back {
             padding: 8px 16px;
-            background: white;
-            color: #1a1a1a;
-            border: 1px solid #e5e7eb;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
             border-radius: 6px;
             text-decoration: none;
             font-weight: 500;
@@ -196,7 +501,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         }
         
         .btn-back:hover {
-            background: #f9fafb;
+            background: var(--bg-secondary);
         }
         
         .container {
@@ -217,17 +522,17 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         
         .calendar-controls select {
             padding: 10px 16px;
-            border: 1px solid #e5e7eb;
+            border: 1px solid var(--border-color);
             border-radius: 8px;
             font-size: 14px;
-            background: white;
+            background: var(--bg-primary);
             cursor: pointer;
             min-width: 200px;
         }
         
         .calendar-controls select:focus {
             outline: none;
-            border-color: #1a1a1a;
+            border-color: var(--text-primary);
             box-shadow: 0 0 0 3px rgba(0,0,0,0.05);
         }
         
@@ -238,8 +543,8 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         
         .view-toggle button {
             padding: 8px 16px;
-            border: 1px solid #e5e7eb;
-            background: white;
+            border: 1px solid var(--border-color);
+            background: var(--bg-primary);
             border-radius: 6px;
             cursor: pointer;
             display: flex;
@@ -250,9 +555,9 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         }
         
         .view-toggle button.active {
-            background: #1a1a1a;
-            color: white;
-            border-color: #1a1a1a;
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            border-color: var(--text-primary);
         }
         
         .calendar-layout {
@@ -263,9 +568,10 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         
         /* Calendar grid matching reference design */
         .calendar-card {
-            background: white;
+            background: var(--bg-primary);
             border-radius: 12px;
             padding: 20px;
+            border: 1px solid var(--border-color);
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         
@@ -278,7 +584,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         
         .calendar-header h2 {
             font-size: 18px;
-            color: #1a1a1a;
+            color: var(--text-primary);
         }
         
         .calendar-nav {
@@ -289,8 +595,8 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         .calendar-nav button {
             width: 32px;
             height: 32px;
-            border: 1px solid #e5e7eb;
-            background: white;
+            border: 1px solid var(--border-color);
+            background: var(--bg-primary);
             border-radius: 6px;
             cursor: pointer;
             display: flex;
@@ -299,7 +605,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         }
         
         .calendar-nav button:hover {
-            background: #f9fafb;
+            background: var(--bg-secondary);
         }
         
         .calendar-grid {
@@ -312,7 +618,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             text-align: center;
             font-size: 12px;
             font-weight: 600;
-            color: #6b7280;
+            color: var(--text-secondary);
             padding: 8px 4px;
         }
         
@@ -331,18 +637,18 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         }
         
         .calendar-day:hover {
-            border-color: #1a1a1a;
-            background: #f9fafb;
+            border-color: var(--text-primary);
+            background: var(--bg-secondary);
         }
         
         .calendar-day.empty {
-            background: #f9fafb;
+            background: var(--bg-secondary);
             cursor: default;
         }
         
         .calendar-day.empty:hover {
-            border-color: #e5e7eb;
-            background: #f9fafb;
+            border-color: var(--border-color);
+            background: var(--bg-secondary);
         }
         
         .calendar-day.closed {
@@ -353,7 +659,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         }
         
         .calendar-day.closed:hover {
-            border-color: #e5e7eb;
+            border-color: var(--border-color);
             background: #f3f4f6;
             transform: none;
         }
@@ -378,19 +684,24 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         }
         
         .calendar-day.occupied {
-            background: #fee2e2;
-            border-color: #fecaca;
+            background: #dbeafe;
+            border-color: #93c5fd;
+        }
+        
+        .calendar-day.special {
+            background: #fef3c7;
+            border-color: #fcd34d;
         }
         
         .calendar-day.selected {
-            border-color: #1a1a1a;
+            border-color: var(--text-primary);
             border-width: 2px;
         }
         
         .calendar-day-number {
             font-size: 14px;
             font-weight: 600;
-            color: #1a1a1a;
+            color: var(--text-primary);
         }
         
         .calendar-day.closed .calendar-day-number {
@@ -419,15 +730,16 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         
         /* Sidebar matching reference design */
         .sidebar-card {
-            background: white;
+            background: var(--bg-primary);
             border-radius: 12px;
             padding: 20px;
+            border: 1px solid var(--border-color);
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         
         .sidebar-card h3 {
             font-size: 16px;
-            color: #1a1a1a;
+            color: var(--text-primary);
             margin-bottom: 16px;
         }
         
@@ -454,8 +766,13 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         }
         
         .legend-color.occupied {
-            background: #fee2e2;
-            border: 1px solid #fecaca;
+            background: #dbeafe;
+            border: 1px solid #93c5fd;
+        }
+        
+        .legend-color.special {
+            background: #fef3c7;
+            border: 1px solid #fcd34d;
         }
         
         .legend-color.closed {
@@ -470,44 +787,49 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         
         .legend-item span {
             font-size: 13px;
-            color: #6b7280;
+            color: var(--text-secondary);
         }
         
         .selected-date-info {
             padding: 16px;
-            background: #f9fafb;
+            background: var(--bg-secondary);
             border-radius: 8px;
             margin-bottom: 16px;
         }
         
         .selected-date-info h4 {
             font-size: 16px;
-            color: #1a1a1a;
+            color: var(--text-primary);
             margin-bottom: 12px;
         }
         
         .selected-date-info p {
             font-size: 13px;
-            color: #6b7280;
+            color: var(--text-secondary);
             margin-bottom: 16px;
         }
         
         .btn-book {
             width: 100%;
-            padding: 12px;
-            background: #1a1a1a;
-            color: white;
+            padding: 14px;
+            background: var(--text-primary);
+            color: var(--bg-primary);
             border: none;
-            border-radius: 6px;
+            border-radius: 10px;
             font-weight: 600;
+            font-size: 15px;
             cursor: pointer;
             text-decoration: none;
             display: block;
             text-align: center;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
         
         .btn-book:hover {
-            background: #000;
+            opacity: 0.9;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
         }
         
         .time-slots {
@@ -516,7 +838,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         
         .time-slots h5 {
             font-size: 14px;
-            color: #1a1a1a;
+            color: var(--text-primary);
             margin-bottom: 12px;
         }
         
@@ -528,12 +850,66 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         
         .time-slot {
             padding: 8px;
-            background: white;
-            border: 1px solid #e5e7eb;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
             border-radius: 6px;
             text-align: center;
             font-size: 12px;
-            color: #1a1a1a;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .time-slot:hover {
+            background: var(--bg-secondary);
+            border-color: var(--text-primary);
+        }
+        
+        .time-slot.occupied {
+            background: #f3f4f6;
+            border-color: #d1d5db;
+            color: #9ca3af;
+            cursor: not-allowed;
+            text-decoration: line-through;
+        }
+        
+        .time-slot.occupied:hover {
+            background: #f3f4f6;
+            border-color: #d1d5db;
+            transform: none;
+        }
+        
+        .booking-details {
+            margin-top: 16px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .booking-item {
+            padding: 12px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        
+        .booking-item.facility {
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .booking-item.special {
+            border-left: 4px solid #f59e0b;
+        }
+        
+        .booking-title {
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+        
+        .booking-meta {
+            font-size: 11px;
+            color: var(--text-secondary);
         }
         
         /* Year view styles */
@@ -557,7 +933,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         }
         
         .mini-month {
-            background: white;
+            background: var(--bg-primary);
             border-radius: 12px;
             padding: 16px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
@@ -566,7 +942,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         .mini-month-header {
             font-size: 14px;
             font-weight: 600;
-            color: #1a1a1a;
+            color: var(--text-primary);
             margin-bottom: 12px;
             text-align: center;
         }
@@ -581,7 +957,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             text-align: center;
             font-size: 10px;
             font-weight: 600;
-            color: #6b7280;
+            color: var(--text-secondary);
             padding: 4px;
         }
         
@@ -599,7 +975,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         }
         
         .mini-day:hover {
-            border-color: #1a1a1a;
+            border-color: var(--text-primary);
             transform: scale(1.1);
         }
         
@@ -642,9 +1018,15 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         }
         
         .mini-day.occupied {
-            background: #fee2e2;
-            border-color: #fecaca;
-            color: #991b1b;
+            background: #dbeafe;
+            border-color: #93c5fd;
+            color: #1e40af;
+        }
+        
+        .mini-day.special {
+            background: #fef3c7;
+            border-color: #fcd34d;
+            color: #92400e;
         }
         
         .mini-day-dot {
@@ -668,13 +1050,36 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             transform: scale(0.95);
         }
         
-        [data-theme="dark"] {
-            --bg-primary: #1a1a1a;
-            --bg-secondary: #2d2d2d;
-            --text-primary: #ffffff;
-            --text-secondary: #9ca3af;
-            --border-color: #404040;
-            --accent-color: #818cf8;
+        .loader-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.3s;
+        }
+
+        [data-theme="dark"] .loader-overlay {
+            background: rgba(0, 0, 0, 0.7);
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid var(--border-color);
+            border-top-color: var(--text-primary);
+            border-radius: 50%;
+            animation: spin 1.5s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
         /* Mobile Responsive Styles */
@@ -926,7 +1331,7 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         </div>
 
         <!-- Wrap month view in container for animation -->
-        <div class="month-view-container" id="month-view">
+        <div class="month-view-container <?php echo $current_view === 'year' ? 'hidden' : ''; ?>" id="month-view">
             <div class="calendar-layout">
                 <!-- Calendar grid -->
                 <div class="calendar-card">
@@ -961,44 +1366,91 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
                         <div class="calendar-day-header">Fri</div>
                         <div class="calendar-day-header">Sat</div>
 
-                        <!-- Empty cells for days before month starts -->
+                        <!-- Empty days for first week -->
                         <?php for ($i = 0; $i < $day_of_week; $i++): ?>
                             <div class="calendar-day empty"></div>
                         <?php endfor; ?>
 
-                        <!-- Days of the month -->
-                        <?php for ($day = 1; $day <= $days_in_month; $day++): 
+                        <!-- Calendar days -->
+                        <?php for ($day = 1; $day <= $days_in_month; $day++): ?>
+                            <?php
                             $current_date = sprintf('%04d-%02d-%02d', $year, $month, $day);
                             $day_of_week_num = date('w', strtotime($current_date));
                             $is_sunday = ($day_of_week_num == 0);
+                            $is_saturday = ($day_of_week_num == 6);
+                            $is_past = strtotime($current_date) < strtotime(date('Y-m-d'));
                             $is_holiday = isset($holidays[$current_date]);
-                            $holiday_name = $is_holiday ? $holidays[$current_date] : '';
-                            $booking_count = isset($bookings[$current_date]) ? $bookings[$current_date] : 0;
                             
-                            $class = 'calendar-day';
-                            if ($is_sunday) {
-                                $class .= ' closed';
-                            } elseif ($is_holiday) {
-                                $class .= ' holiday';
-                            } elseif ($booking_count > 0) {
-                                $class .= ' occupied';
+                            $day_class = 'calendar-day';
+                            $day_label = '';
+                            
+                            if ($is_holiday) {
+                                $day_class .= ' holiday';
+                                $day_label = 'Holiday';
+                            } elseif ($is_past) {
+                                $day_class .= ' closed';
+                                $day_label = 'Closed';
+                            } elseif ($is_sunday) {
+                                $day_class .= ' closed';
+                                $day_label = 'Closed';
                             } else {
-                                $class .= ' available';
+                                $day_class .= ' available';
+                                $day_label = 'Available';
                             }
                             
-                            $onclick = ($is_sunday || $is_holiday) ? '' : "onclick=\"selectDate('$current_date', $booking_count, false, '$holiday_name')\""; ?>
-                            <div class="<?php echo $class; ?>" <?php echo $onclick; ?> title="<?php echo $holiday_name; ?>">
-                                <span class="calendar-day-number"><?php echo $day; ?></span>
-                                <?php if ($booking_count > 0 && !$is_sunday && !$is_holiday): ?>
-                                    <span class="calendar-day-bookings"><?php echo $booking_count; ?> booking<?php echo $booking_count > 1 ? 's' : ''; ?></span>
+                            // Check for bookings
+                            if (isset($combined_bookings[$current_date])) {
+                                $has_facility_booking = false;
+                                $has_google_event = false;
+                                
+                                if (isset($combined_bookings_details[$current_date])) {
+                                    foreach ($combined_bookings_details[$current_date] as $booking) {
+                                        if ($booking['type'] === 'facility_booking') {
+                                            $has_facility_booking = true;
+                                        } elseif ($booking['type'] === 'google_event') {
+                                            $has_google_event = true;
+                                        }
+                                    }
+                                }
+                                
+                                if ($has_google_event) {
+                                    $day_class .= ' special';
+                                    $day_label = 'Special';
+                                } elseif ($has_facility_booking) {
+                                    $day_class .= ' occupied';
+                                    $day_label = 'Occupied';
+                                }
+                            }
+                            
+                            $is_selected = isset($_GET['date']) && $_GET['date'] == $current_date;
+                            if ($is_selected) {
+                                $day_class .= ' selected';
+                            }
+                            ?>
+                            
+                            <div class="<?php echo $day_class; ?>" 
+                                 onclick="selectDate('<?php echo $current_date; ?>')"
+                                 data-date="<?php echo $current_date; ?>">
+                                <div class="calendar-day-number"><?php echo $day; ?></div>
+                                <?php if (isset($combined_bookings[$current_date]) && $combined_bookings[$current_date] > 0): ?>
+                                    <div class="calendar-day-bookings">
+                                        <?php echo $combined_bookings[$current_date]; ?> <?php echo $combined_bookings[$current_date] == 1 ? 'booking' : 'bookings'; ?>
+                                    </div>
                                 <?php endif; ?>
-                                <?php if ($is_sunday): ?>
-                                    <span class="calendar-day-label">Closed</span>
-                                <?php elseif ($is_holiday): ?>
-                                    <span class="calendar-day-label">Holiday</span>
-                                <?php endif; ?>
+                                <div class="calendar-day-label"><?php echo $day_label; ?></div>
                             </div>
                         <?php endfor; ?>
+
+                        <!-- Empty days for last week -->
+                        <?php
+                        $total_cells = $day_of_week + $days_in_month;
+                        $remaining_cells = 42 - $total_cells; // 6 rows * 7 days
+                        if ($remaining_cells > 0) {
+                            for ($i = 0; $i < $remaining_cells; $i++) {
+                                echo '<div class="calendar-day empty"></div>';
+                            }
+                        }
+                        ?>
                     </div>
                 </div>
 
@@ -1012,64 +1464,126 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
                         </div>
                         <div class="legend-item">
                             <div class="legend-color occupied"></div>
-                            <span>Occupied</span>
+                            <span>Occupied (Booking)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color special"></div>
+                            <span>Google Event</span>
                         </div>
                         <div class="legend-item">
                             <div class="legend-color closed"></div>
-                            <span>Sunday (Closed)</span>
+                            <span>Closed/Weekend</span>
                         </div>
                         <div class="legend-item">
                             <div class="legend-color holiday"></div>
-                            <span>Holiday (Closed)</span>
+                            <span>Holiday</span>
                         </div>
                     </div>
 
-                    <div id="date-info" style="display: none;">
+                    <?php if (isset($_GET['date'])): ?>
+                        <?php
+                        $selected_date = $_GET['date'];
+                        $day_of_week_selected = date('w', strtotime($selected_date));
+                        $is_sunday_selected = ($day_of_week_selected == 0);
+                        $is_saturday_selected = ($day_of_week_selected == 6);
+                        $is_past_selected = strtotime($selected_date) < strtotime(date('Y-m-d'));
+                        $is_holiday_selected = isset($holidays[$selected_date]);
+                        $has_bookings = isset($combined_bookings_details[$selected_date]);
+                        ?>
+                        
                         <div class="selected-date-info">
-                            <h4 id="selected-date-title">Monday, January 13, 2025</h4>
-                            <p id="selected-date-status">No bookings for this date</p>
-                            <a href="create_request.php" class="btn-book">Book Facility</a>
+                            <h4><?php echo date('F j, Y', strtotime($selected_date)); ?></h4>
+                            <p>
+                                <?php if ($is_holiday_selected): ?>
+                                    Holiday: <?php echo $holidays[$selected_date]; ?>
+                                <?php elseif ($is_past_selected): ?>
+                                    This date has passed and is no longer available for booking.
+                                <?php elseif ($is_sunday_selected): ?>
+                                    Facility is closed on Sundays.
+                                <?php elseif ($has_bookings): ?>
+                                    <?php
+                                    $booking_count = count($combined_bookings_details[$selected_date]);
+                                    echo $booking_count . ' ' . ($booking_count == 1 ? 'booking' : 'bookings') . ' scheduled';
+                                    ?>
+                                <?php else: ?>
+                                    Available for booking
+                                <?php endif; ?>
+                            </p>
+                            
+                            <?php if (!$is_past_selected && !$is_sunday_selected && !$is_holiday_selected): ?>
+                                <div class="time-slots">
+                                    <h5>Available Time Slots:</h5>
+                                    <div class="time-slot-grid" id="time-slots">
+                                        <!-- Time slots will be populated by JavaScript -->
+                                    </div>
+                                    <p class="booking-details-note">
+                                        For specific occupied time ranges, please refer to the "Not Available"
+                                        section below.
+                                    </p>
+                                </div>
+    
+                                <a href="create_request.php?date=<?php echo $selected_date; ?>" class="btn-book">Book a Facility for this Date</a>
+    
+                            <?php endif; ?>
                         </div>
 
-                        <div class="time-slots">
-                            <h5>Available Time Slots</h5>
-                            <div class="time-slot-grid">
-                                <div class="time-slot">07:00</div>
-                                <div class="time-slot">08:00</div>
-                                <div class="time-slot">09:00</div>
-                                <div class="time-slot">10:00</div>
-                                <div class="time-slot">11:00</div>
-                                <div class="time-slot">12:00</div>
-                                <div class="time-slot">13:00</div>
-                                <div class="time-slot">14:00</div>
-                                <div class="time-slot">15:00</div>
-                                <div class="time-slot">16:00</div>
-                                <div class="time-slot">17:00</div>
-                                <div class="time-slot">18:00</div>
+                        <?php if ($has_bookings): ?>
+                            <div class="booking-details">
+                                <h5>Not Available:</h5>
+                                <?php foreach ($combined_bookings_details[$selected_date] as $booking): ?>
+                                    <div class="booking-item <?php echo $booking['type'] === 'google_event' ? 'special' : 'facility'; ?>">
+                                        <div class="booking-title">
+                                            <?php if ($booking['type'] === 'facility_booking'): ?>
+                                                <?php echo htmlspecialchars($booking['facility_name']); ?>
+                                            <?php else: ?>
+                                                <?php echo htmlspecialchars($booking['summary']); ?>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="booking-meta">
+                                            <?php if ($booking['type'] === 'facility_booking'): ?>
+                                                <?php
+                                                    // Format time to AM/PM
+                                                    $time_parts = explode(' to ', $booking['time_needed']);
+                                                    $start_time_formatted = date("g:i A", strtotime($time_parts[0]));
+                                                    $end_time_formatted = date("g:i A", strtotime($time_parts[1]));
+                                                ?>
+                                                Time: <?php echo $start_time_formatted . ' to ' . $end_time_formatted; ?>
+                                            <?php else: ?>
+                                                Time: <?php echo htmlspecialchars($booking['time_display']); ?>
+                                                <?php if ($booking['location']): ?>
+                                                    <br>Location: <?php echo htmlspecialchars($booking['location']); ?>
+                                                <?php endif; ?>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
                             </div>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        <div class="selected-date-info">
+                            <h4>Select a Date</h4>
+                            <p>Click on any available date to view details and available time slots.</p>
                         </div>
-                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
 
-        <!-- Add year view container -->
-        <div class="year-view-container" id="year-view">
+        <!-- Year view container -->
+        <div class="year-view-container <?php echo $current_view === 'year' ? 'active' : ''; ?>" id="year-view">
             <div class="calendar-card">
                 <div class="calendar-header">
-                    <h2>
-                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: inline-block; vertical-align: middle; margin-right: 8px;">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                        </svg>
-                        <?php echo $year; ?>
-                    </h2>
+                    <h2><?php echo $year; ?></h2>
                     <div class="calendar-nav">
-                        <button onclick="navigateYear(-1)">
+                        <button onclick="navigateYear(<?php echo $year - 1; ?>)">
                             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                             </svg>
                         </button>
-                        <button onclick="navigateYear(1)">
+                        <button onclick="navigateYear(<?php echo date('Y'); ?>)" style="padding: 0 12px; font-weight: 500;">
+                            Today
+                        </button>
+                        <button onclick="navigateYear(<?php echo $year + 1; ?>)">
                             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                             </svg>
@@ -1078,19 +1592,17 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
                 </div>
 
                 <div class="year-grid">
-                    <?php 
-                    $month_names = ['January', 'February', 'March', 'April', 'May', 'June', 
-                                   'July', 'August', 'September', 'October', 'November', 'December'];
-                    
-                    for ($m = 1; $m <= 12; $m++): 
-                        $first_day_of_month = mktime(0, 0, 0, $m, 1, $year);
-                        $days_in_current_month = date('t', $first_day_of_month);
-                        $day_of_week_start = date('w', $first_day_of_month);
-                    ?>
+                    <?php for ($m = 1; $m <= 12; $m++): ?>
+                        <?php
+                        $month_first_day = mktime(0, 0, 0, $m, 1, $year);
+                        $month_days = date('t', $month_first_day);
+                        $month_start_day = date('w', $month_first_day);
+                        $month_name_short = date('F', $month_first_day);
+                        ?>
                         <div class="mini-month">
-                            <div class="mini-month-header"><?php echo $month_names[$m - 1]; ?></div>
+                            <div class="mini-month-header"><?php echo $month_name_short; ?></div>
                             <div class="mini-calendar-grid">
-                                <!-- Day headers -->
+                                <!-- Mini day headers -->
                                 <div class="mini-day-header">S</div>
                                 <div class="mini-day-header">M</div>
                                 <div class="mini-day-header">T</div>
@@ -1099,39 +1611,64 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
                                 <div class="mini-day-header">F</div>
                                 <div class="mini-day-header">S</div>
 
-                                <!-- Empty cells -->
-                                <?php for ($i = 0; $i < $day_of_week_start; $i++): ?>
+                                <!-- Empty days -->
+                                <?php for ($i = 0; $i < $month_start_day; $i++): ?>
                                     <div class="mini-day empty"></div>
                                 <?php endfor; ?>
 
-                                <!-- Days -->
-                                <?php for ($d = 1; $d <= $days_in_current_month; $d++): 
-                                    $date_str = sprintf('%04d-%02d-%02d', $year, $m, $d);
-                                    $day_num = date('w', strtotime($date_str));
-                                    $is_sunday = ($day_num == 0);
-                                    $is_holiday = isset($holidays[$date_str]);
-                                    $has_booking = isset($year_bookings[$date_str]) && $year_bookings[$date_str] > 0;
+                                <!-- Month days -->
+                                <?php for ($d = 1; $d <= $month_days; $d++): ?>
+                                    <?php
+                                    $current_date = sprintf('%04d-%02d-%02d', $year, $m, $d);
+                                    $day_of_week_num = date('w', strtotime($current_date));
+                                    $is_sunday = ($day_of_week_num == 0);
+                                    $is_saturday = ($day_of_week_num == 6);
+                                    $is_past = strtotime($current_date) < strtotime(date('Y-m-d'));
+                                    $is_holiday = isset($holidays[$current_date]);
                                     
-                                    $mini_class = 'mini-day';
-                                    if ($is_sunday) {
-                                        $mini_class .= ' closed';
-                                    } elseif ($is_holiday) {
-                                        $mini_class .= ' holiday';
-                                    } elseif ($has_booking) {
-                                        $mini_class .= ' occupied';
+                                    $mini_day_class = 'mini-day';
+                                    
+                                    if ($is_holiday) {
+                                        $mini_day_class .= ' holiday';
+                                    } elseif ($is_past) {
+                                        $mini_day_class .= ' closed';
+                                    } elseif ($is_sunday) {
+                                        $mini_day_class .= ' closed';
                                     } else {
-                                        $mini_class .= ' available';
+                                        $mini_day_class .= ' available';
                                     }
                                     
-                                    $onclick_attr = ($is_sunday || $is_holiday) ? '' : "onclick=\"jumpToMonth($m, $year)\"";
-                                ?>
-                                    <div class="<?php echo $mini_class; ?>" <?php echo $onclick_attr; ?>>
+                                    // Check for bookings
+                                    if (isset($year_bookings[$current_date])) {
+                                        $mini_day_class .= ' occupied';
+                                    }
+                                    
+                                    // Check for Google Calendar events
+                                    if (isset($google_calendar_bookings[$current_date])) {
+                                        $mini_day_class .= ' special';
+                                    }
+                                    ?>
+                                    
+                                    <div class="<?php echo $mini_day_class; ?>" 
+                                         onclick="selectDateFromYear('<?php echo $current_date; ?>')"
+                                         title="<?php echo date('M j, Y', strtotime($current_date)); ?>">
                                         <?php echo $d; ?>
-                                        <?php if ($has_booking && !$is_sunday && !$is_holiday): ?>
-                                            <span class="mini-day-dot"></span>
+                                        <?php if (isset($year_bookings[$current_date]) || isset($google_calendar_bookings[$current_date])): ?>
+                                            <div class="mini-day-dot"></div>
                                         <?php endif; ?>
                                     </div>
                                 <?php endfor; ?>
+
+                                <!-- Remaining empty days -->
+                                <?php
+                                $total_mini_cells = $month_start_day + $month_days;
+                                $remaining_mini_cells = 42 - $total_mini_cells;
+                                if ($remaining_mini_cells > 0) {
+                                    for ($i = 0; $i < $remaining_mini_cells; $i++) {
+                                        echo '<div class="mini-day empty"></div>';
+                                    }
+                                }
+                                ?>
                             </div>
                         </div>
                     <?php endfor; ?>
@@ -1140,59 +1677,62 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
         </div>
     </div>
 
+    <div id="loader" class="loader-overlay">
+        <div class="spinner"></div>
+    </div>
+
     <script>
-        let currentView = 'month';
-        
-        function switchView(view) {
-            const monthView = document.getElementById('month-view');
-            const yearView = document.getElementById('year-view');
-            const buttons = document.querySelectorAll('.view-toggle button');
-            
-            if (view === 'year' && currentView === 'month') {
-                // Switch to year view
-                monthView.classList.add('hidden');
-                setTimeout(() => {
-                    yearView.classList.add('active');
-                }, 50);
-                buttons[0].classList.remove('active');
-                buttons[1].classList.add('active');
-                currentView = 'year';
-            } else if (view === 'month' && currentView === 'year') {
-                // Switch to month view
-                yearView.classList.remove('active');
-                setTimeout(() => {
-                    monthView.classList.remove('hidden');
-                }, 50);
-                buttons[1].classList.remove('active');
-                buttons[0].classList.add('active');
-                currentView = 'month';
-            }
+        function showLoader() {
+            document.getElementById('loader').style.display = 'flex';
         }
-        
-        function jumpToMonth(month, year) {
+
+        function selectDate(date) {
+            showLoader();
             const url = new URL(window.location.href);
-            url.searchParams.set('month', month);
-            url.searchParams.set('year', year);
+            url.searchParams.set('date', date);
             window.location.href = url.toString();
         }
-        
-        function navigateYear(direction) {
-            const currentYear = <?php echo $year; ?>;
-            const newYear = currentYear + direction;
+
+        function selectDateFromYear(date) {
+            showLoader();
             const url = new URL(window.location.href);
-            url.searchParams.set('year', newYear);
+            const dateObj = new Date(date);
+            url.searchParams.set('month', dateObj.getMonth() + 1);
+            url.searchParams.set('year', dateObj.getFullYear());
+            url.searchParams.set('date', date);
             window.location.href = url.toString();
         }
-        
+
         function navigateMonth(month, year) {
+            showLoader();
             const url = new URL(window.location.href);
+            url.searchParams.set('view', 'month');
             url.searchParams.set('month', month);
             url.searchParams.set('year', year);
+            if (url.searchParams.has('date')) {
+                url.searchParams.delete('date');
+            }
             window.location.href = url.toString();
         }
-        
-        function filterByFacility(facility) {
+
+        function navigateYear(year) {
+            showLoader();
             const url = new URL(window.location.href);
+            url.searchParams.set('view', 'year');
+            url.searchParams.set('year', year);
+            if (url.searchParams.has('month')) {
+                url.searchParams.delete('month');
+            }
+            if (url.searchParams.has('date')) {
+                url.searchParams.delete('date');
+            }
+            window.location.href = url.toString();
+        }
+
+        function filterByFacility(facility) {
+            showLoader();
+            const url = new URL(window.location.href);
+            url.searchParams.set('view', '<?php echo $current_view; ?>');
             if (facility) {
                 url.searchParams.set('facility', facility);
             } else {
@@ -1200,33 +1740,104 @@ $theme = isset($_SESSION['theme']) ? $_SESSION['theme'] : 'light';
             }
             window.location.href = url.toString();
         }
-        
-        function selectDate(date, bookingCount, isClosed, holidayName) {
-            document.querySelectorAll('.calendar-day').forEach(day => {
-                day.classList.remove('selected');
-            });
+
+        function switchView(view) {
+            const monthView = document.getElementById('month-view');
+            const yearView = document.getElementById('year-view');
+            const buttons = document.querySelectorAll('.view-toggle button');
+            const url = new URL(window.location.href);
             
-            event.currentTarget.classList.add('selected');
+            buttons.forEach(btn => btn.classList.remove('active'));
             
-            const dateInfo = document.getElementById('date-info');
-            const dateTitle = document.getElementById('selected-date-title');
-            const dateStatus = document.getElementById('selected-date-status');
-            
-            const dateObj = new Date(date);
-            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-            const formattedDate = dateObj.toLocaleDateString('en-US', options);
-            
-            dateTitle.textContent = formattedDate;
-            
-            if (holidayName) {
-                dateStatus.textContent = `Holiday: ${holidayName}`;
-            } else if (bookingCount > 0) {
-                dateStatus.textContent = bookingCount + ' booking' + (bookingCount > 1 ? 's' : '') + ' for this date';
+            if (view === 'month') {
+                monthView.classList.remove('hidden');
+                yearView.classList.remove('active');
+                document.querySelector('.view-toggle button[onclick="switchView(\'month\')"]').classList.add('active');
+                url.searchParams.set('view', 'month');
             } else {
-                dateStatus.textContent = 'No bookings for this date';
+                monthView.classList.add('hidden');
+                yearView.classList.add('active');
+                document.querySelector('.view-toggle button[onclick="switchView(\'year\')"]').classList.add('active');
+                url.searchParams.set('view', 'year');
+            }
+            // Update URL without reloading for a smoother experience
+            history.pushState({}, '', url);
+        }
+
+        // Initialize time slots for selected date
+        document.addEventListener('DOMContentLoaded', function() {
+            const selectedDate = '<?php echo isset($_GET['date']) ? $_GET['date'] : ''; ?>';
+            const currentView = '<?php echo $current_view; ?>';
+            switchView(currentView);
+            if (selectedDate) {
+                updateTimeSlots(selectedDate);
+            }
+        });
+
+        function updateTimeSlots(date) {
+            const timeSlotGrid = document.getElementById('time-slots');
+            if (!timeSlotGrid) return;
+            
+            const timeSlots = [];
+            for (let hour = 7; hour <= 21; hour++) { // 7 AM to 9 PM
+                for (let minute of ['00', '30']) {
+                    if (hour === 21 && minute === '30') continue; // Last slot is 9:00 PM
+                    timeSlots.push(`${hour.toString().padStart(2, '0')}:${minute}`);
+                }
             }
             
-            dateInfo.style.display = 'block';
+            // Get occupied times for this date
+            const occupiedRanges = [];
+            <?php if (isset($_GET['date']) && isset($combined_bookings_details[$_GET['date']])): ?>
+                <?php foreach ($combined_bookings_details[$_GET['date']] as $booking): ?>
+                    <?php if ($booking['type'] === 'facility_booking'):
+                        $time_parts = explode(' to ', $booking['time_needed']);
+                        $start_time_24hr = date("H:i", strtotime($time_parts[0]));
+                        $end_time_24hr = date("H:i", strtotime($time_parts[1]));
+                    ?>
+                        occupiedRanges.push({start: '<?php echo $start_time_24hr; ?>', end: '<?php echo $end_time_24hr; ?>'});
+                    <?php elseif ($booking['type'] === 'google_event'): 
+                        // Use the new start_time and end_time fields for Google events
+                        $start_time_24hr = $booking['start_time'];
+                        $end_time_24hr = $booking['end_time'];
+                    ?>
+                        occupiedRanges.push({
+                            start: '<?php echo $start_time_24hr; ?>', 
+                            end: '<?php echo $end_time_24hr; ?>'
+                        });
+                    <?php endif; ?>
+                <?php endforeach; ?>
+            <?php endif; ?>
+
+            // Create time slot elements
+            timeSlotGrid.innerHTML = '';
+            timeSlots.forEach(slotTime => {
+                let isOccupied = false;
+                for (const range of occupiedRanges) {
+                    // A slot is occupied if it starts at or after a booking starts, AND strictly before that booking ends.
+                    if (slotTime >= range.start && slotTime < range.end) {
+                        isOccupied = true;
+                        break;
+                    }
+                }
+
+                const timeSlot = document.createElement('div');
+                timeSlot.className = `time-slot ${isOccupied ? 'occupied' : ''}`;
+                
+                // Format for display (e.g., 8:00 AM)
+                const d = new Date(`1970-01-01T${slotTime}:00`);
+                timeSlot.textContent = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+                timeSlot.title = isOccupied ? 'This time slot is occupied' : 'Click to book this time slot';
+                
+                if (!isOccupied) {
+                    timeSlot.onclick = function() {
+                        window.location.href = `create_request.php?date=${date}&time=${slotTime}`;
+                    };
+                }
+                
+                timeSlotGrid.appendChild(timeSlot);
+            });
         }
     </script>
 </body>

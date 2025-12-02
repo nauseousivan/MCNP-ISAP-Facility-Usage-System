@@ -17,15 +17,38 @@ function createNotification($conn, $user_id, $title, $message, $request_id = nul
     return $stmt->execute();
 }
 
+/**
+ * Shortens long department names.
+ *
+ * @param string $department The full department name.
+ * @return string The abbreviated name or the original name.
+ */
+function shortenDepartment(string $department): string {
+    $shortNames = [
+        'Medical Colleges of Northern Philippines' => 'MCNP',
+        'International School of Asia and the Pacific' => 'ISAP'
+    ];
+    return $shortNames[$department] ?? $department;
+}
+
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
 // Handle status update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $request_id = $_POST['request_id'];
     $action = $_POST['action'];
-    $admin_notes = $_POST['admin_notes'] ?? '';
     
-    $status = ($action === 'approve') ? 'approved' : 'rejected';
+    // Determine status and default notes based on action
+    if ($action === 'approve') {
+        $status = 'approved';
+        $admin_notes = $_POST['admin_notes'] ?? 'Your request has been approved.';
+    } elseif ($action === 'reject') {
+        $status = 'rejected';
+        $admin_notes = $_POST['admin_notes'] ?? 'Your request has been rejected.';
+    } else { // 'cancel'
+        $status = 'cancelled';
+        $admin_notes = $_POST['admin_notes'] ?? 'Request cancelled by administrator.';
+    }
     
     // First, get the request details to know which user to notify
     $get_request_sql = "SELECT user_id, control_number, event_type FROM facility_requests WHERE id = ?";
@@ -50,11 +73,15 @@ if ($stmt->execute()) {
         $title = "Request Approved";
         $message = "Your facility request #{$control_number} for '{$event_type}' has been approved.";
         $type = 'request_approved';
-    } else {
+    } elseif ($action === 'reject') {
         $title = "Request Rejected";
         $message = "Your facility request #{$control_number} for '{$event_type}' has been rejected." . 
                   ($admin_notes ? " Note: {$admin_notes}" : "");
         $type = 'request_rejected';
+    } elseif ($action === 'cancel') {
+        $title = "Request Cancelled";
+        $message = "Your facility request #{$control_number} for '{$event_type}' has been cancelled by an administrator.";
+        $type = 'request_cancelled';
     }
     
     createNotification($conn, $user_id, $title, $message, $request_id, $type);
@@ -85,6 +112,8 @@ if ($filter === 'pending') {
     $sql .= " AND fr.status = 'approved'";
 } elseif ($filter === 'rejected') {
     $sql .= " AND fr.status = 'rejected'";
+} elseif ($filter === 'cancelled') {
+    $sql .= " AND fr.status = 'cancelled'";
 }
 
 if ($search) {
@@ -124,12 +153,12 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         }
         
         :root {
-            --background: #ffffff;
+            --background: #fdfaf6;
             --foreground: #0a0a0a;
             --card: #ffffff;
             --card-foreground: #0a0a0a;
-            --muted: #f5f5f5;
-            --muted-foreground: #737373;
+            --muted: #f8f5f1;
+            --muted-foreground: #71717a;
             --border: #e5e5e5;
             --primary: #0a0a0a;
             --primary-foreground: #fafafa;
@@ -140,7 +169,7 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             --success: #22c55e;
             --warning: #f59e0b;
             --danger: #ef4444;
-            --sidebar: #fafafa;
+            --sidebar: #ffffff;
             --sidebar-foreground: #0a0a0a;
             --sidebar-border: #e5e5e5;
         }
@@ -159,13 +188,20 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             --secondary-foreground: #fafafa;
             --accent: #262626;
             --accent-foreground: #fafafa;
-            --sidebar: #171717;
+            --sidebar: #0a0a0a;
             --sidebar-foreground: #fafafa;
             --sidebar-border: #262626;
         }
         
+        @font-face {
+            font-family: 'Geist Sans';
+            src: url('../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2') format('woff2');
+            font-weight: 100 900;
+            font-style: normal;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-family: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background: var(--background);
             color: var(--foreground);
             display: flex;
@@ -217,7 +253,7 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             padding: 10px 12px;
             color: var(--muted-foreground);
             text-decoration: none;
-            border-radius: 8px;
+            border-radius: 12px;
             transition: all 0.2s;
             font-size: 14px;
             font-weight: 500;
@@ -352,10 +388,11 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         /* Filters */
         .filters {
             background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
+            border: 1px solid var(--border); 
+            border-radius: 20px;
             padding: 20px;
             margin-bottom: 24px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
             display: flex;
             gap: 12px;
             flex-wrap: wrap;
@@ -401,10 +438,11 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         .card {
             background: var(--card);
             border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: 20px;
             padding: 24px;
             margin-bottom: 24px;
             transition: background-color 0.3s, border-color 0.3s;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
         }
         
         /* Table */
@@ -438,8 +476,8 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         .badge {
             display: inline-flex;
             align-items: center;
-            padding: 4px 10px;
-            border-radius: 6px;
+            padding: 6px 12px;
+            border-radius: 999px;
             font-size: 12px;
             font-weight: 600;
             text-transform: uppercase;
@@ -459,6 +497,11 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         .badge.rejected {
             background: rgba(239, 68, 68, 0.1);
             color: var(--danger);
+        }
+        
+        .badge.cancelled {
+            background: var(--muted);
+            color: var(--muted-foreground);
         }
         
         /* Button */
@@ -481,6 +524,27 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         
         .btn-primary:hover {
             opacity: 0.9;
+        }
+        
+        .btn-approve {
+            background: var(--success);
+            color: white;
+        }
+        
+        /* Badge Styles from users.php */
+        .badge.pending {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning);
+        }
+        
+        .badge.approved {
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--success);
+        }
+        
+        .badge.rejected {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
         }
         
         /* Empty State */
@@ -636,6 +700,16 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
     background: #dc2626;
     opacity: 0.9;
 }
+
+.btn-cancel {
+    background: var(--warning);
+    color: white;
+}
+
+.btn-cancel:hover {
+    background: #d97706;
+    opacity: 0.9;
+}
     </style>
 </head>
 <body>
@@ -685,6 +759,7 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
                 <a href="?filter=all" class="filter-btn <?php echo $filter === 'all' ? 'active' : ''; ?>">All</a>
                 <a href="?filter=pending" class="filter-btn <?php echo $filter === 'pending' ? 'active' : ''; ?>">Pending</a>
                 <a href="?filter=approved" class="filter-btn <?php echo $filter === 'approved' ? 'active' : ''; ?>">Approved</a>
+                <a href="?filter=cancelled" class="filter-btn <?php echo $filter === 'cancelled' ? 'active' : ''; ?>">Cancelled</a>
                 <a href="?filter=rejected" class="filter-btn <?php echo $filter === 'rejected' ? 'active' : ''; ?>">Rejected</a>
                 <div class="search-box">
                     <form method="GET">
@@ -696,28 +771,32 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
 
             <!-- Requests Table -->
             <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">All Requests</h2>
+                </div>
                 <table class="table">
                     <thead>
                         <tr>
                             <th>Control Number</th>
                             <th>Requestor</th>
+                            <th>Email</th>
                             <th>Department</th>
                             <th>Event Type</th>
                             <th>Status</th>
                             <th>Date</th>
-                            <th>Actions</th>
+                            <th style="text-align: right;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if ($requests && $requests->num_rows > 0): ?>
                             <?php while ($request = $requests->fetch_assoc()): ?>
                                 <tr>
-                                    <td><?php echo htmlspecialchars($request['control_number']); ?></td>
+                                    <td><strong><?php echo htmlspecialchars($request['control_number']); ?></strong></td>
                                     <td>
-                                        <?php echo htmlspecialchars($request['user_name']); ?><br>
-                                        <small style="color: var(--muted-foreground);"><?php echo htmlspecialchars($request['user_email']); ?></small>
+                                        <?php echo htmlspecialchars($request['user_name']); ?>
                                     </td>
-                                    <td><?php echo htmlspecialchars($request['department']); ?></td>
+                                    <td><?php echo htmlspecialchars($request['user_email']); ?></td>
+                                    <td><?php echo htmlspecialchars(shortenDepartment($request['department'])); ?></td>
                                     <td><?php echo htmlspecialchars($request['event_type']); ?></td>
                                     <td>
                                         <span class="badge <?php echo $request['status']; ?>">
@@ -725,29 +804,28 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
                                         </span>
                                     </td>
                                     <td><?php echo date('M j, Y', strtotime($request['created_at'])); ?></td>
-                                    <td>
-                                        <?php if (strtolower($request['status']) === 'pending'): ?>
-                                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                                <form method="POST" style="display: inline;">
-                                                    <input type="hidden" name="request_id" value="<?php echo $request['id']; ?>">
-                                                    <input type="hidden" name="admin_notes" value="">
-                                                    <button type="submit" name="action" value="approve" class="btn btn-primary" onclick="return confirm('Approve this request?')">Approve</button>
-                                                </form>
-                                                <form method="POST" style="display: inline;">
-                                                    <input type="hidden" name="request_id" value="<?php echo $request['id']; ?>">
-                                                    <input type="hidden" name="admin_notes" value="">
-                                                    <button type="submit" name="action" value="reject" class="btn btn-reject" onclick="return confirm('Reject this request?')">Reject</button>
-                                                </form>
-                                            </div>
-                                        <?php else: ?>
+                                    <td style="text-align: right;">
+                                        <div style="display: flex; gap: 8px; justify-content: flex-end;">
                                             <a href="view_request_admin.php?id=<?php echo $request['id']; ?>" class="btn btn-primary">View</a>
+                                            <?php if ($request['status'] === 'pending'): ?>
+                                                <form method="POST" style="display: inline;">
+                                                    <input type="hidden" name="request_id" value="<?php echo $request['id']; ?>">
+                                                    <button type="submit" name="action" value="approve" class="btn btn-approve" onclick="return confirm('Approve this request?')">Approve</button>
+                                                    <button type="submit" name="action" value="reject" class="btn btn-reject" onclick="return confirm('Are you sure you want to reject this request?')">Reject</button>
+                                                </form>
+                                            <?php elseif ($request['status'] === 'approved'): ?>
+                                                <form method="POST" style="display: inline;">
+                                                    <input type="hidden" name="request_id" value="<?php echo $request['id']; ?>">
+                                                    <button type="submit" name="action" value="cancel" class="btn btn-cancel" onclick="return confirm('Are you sure you want to CANCEL this request? This action cannot be undone.')">Cancel</button>
+                                                </form>
                                         <?php endif; ?>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endwhile; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="7">
+                                <td colspan="8">
                                     <div class="empty-state">
                                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>

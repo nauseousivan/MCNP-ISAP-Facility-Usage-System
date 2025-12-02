@@ -15,13 +15,26 @@ $user_id = $_SESSION['user_id'];
 // Get theme directly from database as fallback
 $theme = 'light';
 $sql = "SELECT theme FROM user_preferences WHERE user_id = ?";
+$border_options = [
+    'color' => '#667eea',
+    'width' => 4,
+    'style' => 'solid'
+];
+
+$profile_song_url = '';
+
+$sql = "SELECT theme, profile_border_color, profile_border_width, profile_border_style, profile_song_url FROM user_preferences WHERE user_id = ?";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
 if ($result->num_rows > 0) {
     $prefs = $result->fetch_assoc();
-    $theme = $prefs['theme'];
+    $theme = $prefs['theme'] ?? 'light';
+    $border_options['color'] = $prefs['profile_border_color'] ?? $border_options['color'];
+    $border_options['width'] = $prefs['profile_border_width'] ?? $border_options['width'];
+    $border_options['style'] = $prefs['profile_border_style'] ?? $border_options['style'];
+    $profile_song_url = $prefs['profile_song_url'] ?? '';
 }
 
 // Get user details
@@ -36,6 +49,21 @@ $error = '';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (isset($_POST['update_profile'])) {
+        // Handle border options update
+        $border_color = $_POST['border_color'];
+        $border_width = $_POST['border_width'];
+        $border_style = $_POST['border_style'];
+
+        $pref_sql = "INSERT INTO user_preferences (user_id, profile_border_color, profile_border_width, profile_border_style)
+                     VALUES (?, ?, ?, ?)
+                     ON DUPLICATE KEY UPDATE 
+                     profile_border_color = VALUES(profile_border_color), 
+                     profile_border_width = VALUES(profile_border_width), 
+                     profile_border_style = VALUES(profile_border_style)";
+        $pref_stmt = $conn->prepare($pref_sql);
+        $pref_stmt->bind_param("isis", $user_id, $border_color, $border_width, $border_style);
+        $pref_stmt->execute();
+
         $name = $_POST['name'];
         $phone = $_POST['phone'];
         $bio = $_POST['bio'];
@@ -68,8 +96,48 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $stmt->bind_param("i", $user_id);
             $stmt->execute();
             $user = $stmt->get_result()->fetch_assoc();
+            // Refresh border options
+            $border_options['color'] = $border_color;
+            $border_options['width'] = $border_width;
+            $border_options['style'] = $border_style;
+
         } else {
             $error = "Error updating profile.";
+        }
+    }
+
+    if (isset($_POST['update_song'])) {
+        $song_url = trim($_POST['song_url']);
+        $embed_url = '';
+
+        if (!empty($song_url)) {
+            // Extract YouTube video ID from URL
+            $video_id = '';
+            $pattern = '/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/';
+            if (preg_match($pattern, $song_url, $matches)) {
+                $video_id = $matches[1];
+            }
+
+            if ($video_id) {
+                $embed_url = 'https://www.youtube.com/embed/' . $video_id;
+            } else {
+                $error = "Invalid YouTube URL. Please provide a valid link.";
+            }
+        }
+
+        if (!$error) {
+            $pref_sql = "INSERT INTO user_preferences (user_id, profile_song_url)
+                         VALUES (?, ?)
+                         ON DUPLICATE KEY UPDATE profile_song_url = VALUES(profile_song_url)";
+            $pref_stmt = $conn->prepare($pref_sql);
+            $pref_stmt->bind_param("is", $user_id, $embed_url);
+            
+            if ($pref_stmt->execute()) {
+                $success = "Profile song updated successfully!";
+                $profile_song_url = $embed_url;
+            } else {
+                $error = "Error saving profile song.";
+            }
         }
     }
     
@@ -127,6 +195,62 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
         }
     }
+
+    if (isset($_FILES['cover_photo']) && $_FILES['cover_photo']['error'] == 0) {
+        $allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+        $max_size = 5 * 1024 * 1024; // 5MB
+
+        $file_type = $_FILES['cover_photo']['type'];
+        $file_size = $_FILES['cover_photo']['size'];
+
+        if (!in_array($file_type, $allowed_types)) {
+            $error = "Only JPG, JPEG, PNG, GIF, and WebP images are allowed for cover photos.";
+        } elseif ($file_size > $max_size) {
+            $error = "Cover photo size must be less than 5MB.";
+        } else {
+            $upload_dir = 'uploads/covers/';
+            if (!is_dir($upload_dir)) {
+                mkdir($upload_dir, 0777, true);
+            }
+
+            $file_extension = pathinfo($_FILES['cover_photo']['name'], PATHINFO_EXTENSION);
+            $filename = 'cover_' . $user_id . '_' . time() . '.' . $file_extension;
+            $upload_path = $upload_dir . $filename;
+
+            if (!empty($user['cover_photo']) && file_exists($user['cover_photo'])) {
+                unlink($user['cover_photo']);
+            }
+
+            if (move_uploaded_file($_FILES['cover_photo']['tmp_name'], $upload_path)) {
+                $sql = "UPDATE users SET cover_photo = ? WHERE id = ?";
+                $stmt = $conn->prepare($sql);
+                $stmt->bind_param("si", $upload_path, $user_id);
+
+                if ($stmt->execute()) {
+                    $success = "Cover photo updated successfully!";
+                } else {
+                    $error = "Error saving cover photo to database.";
+                }
+            } else {
+                $error = "Error uploading cover photo.";
+            }
+        }
+    }
+
+    if (isset($_POST['update_cover_photo'])) {
+        // This block is intentionally left empty for now.
+        // The cover photo is handled by its own form submission via JavaScript.
+        // This ensures that when the main profile form is submitted,
+        // it doesn't interfere with other uploads.
+    }
+
+    // Re-fetch user data after all potential updates to ensure the page has the latest info
+    $sql = "SELECT * FROM users WHERE id = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $user = $stmt->get_result()->fetch_assoc();
+
 }
 
 $logo_file = $GLOBALS['logo_file'];
@@ -147,11 +271,11 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
         }
         
         :root {
-            --bg-primary: #ffffff;
-            --bg-secondary: #f8f9fa;
+            --bg-primary: #ffffff; /* Card and Header background */
+            --bg-secondary: #fdfaf6; /* Main page background */
             --text-primary: #1a1a1a;
-            --text-secondary: #6b7280;
-            --border-color: #e5e7eb;
+            --text-secondary: #71717a;
+            --border-color: #e5e7eb; 
             --card-bg: #ffffff;
             --input-bg: #ffffff;
             --input-border: #d1d5db;
@@ -166,15 +290,16 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
             --alert-danger-text: #991b1b;
             --alert-danger-border: #fecaca;
             --stat-bg: #f3f4f6;
+            --bg-muted: #f3f4f6; /* For disabled inputs */
             --stat-text: #6b7280;
         }
 
         [data-theme="dark"] {
-            --bg-primary: #1a1a1a;
-            --bg-secondary: #2d2d2d;
+            --bg-primary: #171717; /* Card and Header background */
+            --bg-secondary: #0a0a0a; /* Main page background */
             --text-primary: #ffffff;
             --text-secondary: #9ca3af;
-            --border-color: #404040;
+            --border-color: #404040; 
             --card-bg: #2d2d2d;
             --input-bg: #404040;
             --input-border: #4b5563;
@@ -189,11 +314,19 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
             --alert-danger-text: #fecaca;
             --alert-danger-border: #991b1b;
             --stat-bg: #404040;
+            --bg-muted: #2d2d2d; /* For disabled inputs */
             --stat-text: #d1d5db;
         }
 
+        @font-face {
+            font-family: 'Geist Sans';
+            src: url('node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2') format('woff2');
+            font-weight: 100 900;
+            font-style: normal;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: var(--bg-secondary);
             color: var(--text-primary);
         }
@@ -280,6 +413,40 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
             border: 1px solid var(--border-color);
         }
         
+        /* Cover Photo Styles */
+        .profile-cover-container {
+            position: relative;
+            height: 200px;
+            background: var(--bg-muted);
+            border-radius: 12px 12px 0 0;
+            margin: -32px -32px 0 -32px;
+            overflow: hidden;
+        }
+
+        .cover-photo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .cover-photo-upload {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            width: 36px;
+            height: 36px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .cover-photo-upload:hover { background: rgba(0,0,0,0.7); }
+        .cover-photo-upload svg { width: 18px; height: 18px; color: white; }
+        .cover-photo-upload input { display: none; }
+
         /* Enhanced profile avatar with image support */
         .profile-avatar-container {
             position: relative;
@@ -287,6 +454,8 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
             height: 120px;
             margin: 0 auto 20px;
         }
+        .profile-sidebar .profile-avatar-container { margin-top: -60px; z-index: 2; }
+
         
         .profile-avatar {
             width: 120px;
@@ -301,6 +470,7 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
             font-weight: 700;
             overflow: hidden;
             border: 4px solid var(--border-color);
+            border: <?php echo $border_options['width']; ?>px <?php echo $border_options['style']; ?> <?php echo $border_options['color']; ?>;
         }
         
         .profile-avatar img {
@@ -428,7 +598,7 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
         }
         
         input:disabled {
-            background: var(--bg-secondary);
+            background: var(--bg-muted);
             color: var(--text-secondary);
             cursor: not-allowed;
         }
@@ -730,6 +900,19 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
         <div class="profile-layout">
             <!-- Profile Sidebar -->
             <div class="profile-sidebar">
+                <div class="profile-cover-container">
+                    <img src="<?php echo !empty($user['cover_photo']) && file_exists($user['cover_photo']) ? htmlspecialchars($user['cover_photo']) : 'https://via.placeholder.com/400x200/e0e0e0/9ca3af?text=Upload+Cover'; ?>" alt="Cover Photo" class="cover-photo">
+                    <form method="POST" enctype="multipart/form-data" id="coverForm">
+                        <label class="cover-photo-upload" title="Upload Cover Photo">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            </svg>
+                            <input type="file" name="cover_photo" accept="image/*" onchange="document.getElementById('coverForm').submit()">
+                        </label>
+                    </form>
+                </div>
+
                 <div class="profile-avatar-container">
                     <div class="profile-avatar">
                         <?php if (!empty($user['profile_picture']) && file_exists($user['profile_picture'])): ?>
@@ -738,7 +921,7 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
                             <?php echo strtoupper(substr($user['name'], 0, 1)); ?>
                         <?php endif; ?>
                     </div>
-                    <form method="POST" enctype="multipart/form-data" id="avatarForm">
+                    <form method="POST" enctype="multipart/form-data" id="avatarForm" title="Upload Profile Picture">
                         <label class="profile-avatar-upload">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
@@ -774,6 +957,21 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
                         <div class="label">Approved</div>
                     </div>
                 </div>
+
+                <!-- Profile Song Player -->
+                <?php if ($profile_song_url): ?>
+                <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border-color);">
+                    <iframe 
+                        width="100%" 
+                        height="150" 
+                        src="<?php echo htmlspecialchars($profile_song_url); ?>" 
+                        title="YouTube video player" 
+                        frameborder="0" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                        allowfullscreen
+                        style="border-radius: 8px;"></iframe>
+                </div>
+                <?php endif; ?>
             </div>
 
             <!-- Profile Form -->
@@ -820,8 +1018,63 @@ $portal_subtitle = $GLOBALS['portal_subtitle'];
                     <button type="submit" class="btn-submit">Update Profile</button>
                 </form>
             </div>
+
+            <!-- Border Options Card -->
+            <div class="profile-card">
+                <h3 class="section-title">Border Options</h3>
+                <form method="POST" action="">
+                    <input type="hidden" name="update_profile" value="1">
+                    <!-- Pass other profile data to avoid clearing them on save -->
+                    <input type="hidden" name="name" value="<?php echo htmlspecialchars($user['name']); ?>">
+                    <input type="hidden" name="phone" value="<?php echo htmlspecialchars($user['phone_number'] ?? ''); ?>">
+                    <input type="hidden" name="bio" value="<?php echo htmlspecialchars($user['bio'] ?? ''); ?>">
+
+                    <div class="form-group">
+                        <label for="border_color">Border Color</label>
+                        <input type="color" id="border_color" name="border_color" value="<?php echo htmlspecialchars($border_options['color']); ?>" oninput="updateBorderPreview()">
+                    </div>
+                    <div class="form-group">
+                        <label for="border_width">Border Width (<?php echo htmlspecialchars($border_options['width']); ?>px)</label>
+                        <input type="range" id="border_width" name="border_width" min="0" max="20" value="<?php echo htmlspecialchars($border_options['width']); ?>" oninput="updateBorderPreview()">
+                    </div>
+                    <div class="form-group">
+                        <label for="border_style">Border Style</label>
+                        <select id="border_style" name="border_style" onchange="updateBorderPreview()">
+                            <?php $styles = ['solid', 'dashed', 'dotted', 'double', 'groove', 'ridge']; ?>
+                            <?php foreach ($styles as $style): ?>
+                                <option value="<?php echo $style; ?>" <?php echo $border_options['style'] === $style ? 'selected' : ''; ?>><?php echo ucfirst($style); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-submit">Save Border Options</button>
+                </form>
+            </div>
+
+            <!-- Profile Song Card -->
+            <div class="profile-card">
+                <h3 class="section-title">Profile Song</h3>
+                <form method="POST" action="">
+                    <div class="form-group">
+                        <label for="song_url">YouTube URL</label>
+                        <input type="text" id="song_url" name="song_url" placeholder="Paste a YouTube link here..." value="<?php echo htmlspecialchars($profile_song_url ? 'https://www.youtube.com/watch?v=' . basename($profile_song_url) : ''); ?>">
+                        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">
+                            To remove your song, clear this field and click save.
+                        </p>
+                    </div>
+                    <button type="submit" name="update_song" class="btn-submit">Save Song</button>
+                </form>
+            </div>
         </div>
     </div>
 
+    <script>
+        function updateBorderPreview() {
+            const color = document.getElementById('border_color').value;
+            const width = document.getElementById('border_width').value;
+            const style = document.getElementById('border_style').value;
+            const avatar = document.querySelector('.profile-avatar');
+            avatar.style.border = `${width}px ${style} ${color}`;
+        }
+    </script>
 </body>
 </html>

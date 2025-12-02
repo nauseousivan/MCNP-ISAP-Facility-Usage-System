@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $user_id = $_POST['user_id'];
     $action = $_POST['action'];
     
-    if ($action === 'approve') {
+    if ($action === 'approve' || $action === 'force_approve') {
         // FIRST: Get user email and name before approving
         $userQuery = $conn->prepare("SELECT email, name FROM users WHERE id = ?");
         $userQuery->bind_param("i", $user_id);
@@ -30,36 +30,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
         
         // THEN: Approve the user
-        $sql = "UPDATE users SET approved = 1 WHERE id = ?";
+        if ($action === 'force_approve') {
+            // This action is for unverified users. It marks them as verified AND approved.
+            $sql = "UPDATE users SET verified = 1, approved = 1 WHERE id = ?";
+            $success_message = "User force-approved successfully!";
+        } else { // 'approve'
+            $sql = "UPDATE users SET approved = 1 WHERE id = ?";
+            $success_message = "User approved successfully!";
+        }
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("i", $user_id);
         $stmt->execute();
         
         // FINALLY: Send approval email if user was found
         if (isset($user_email) && isset($user_name)) {
-            $emailSent = sendApprovalNotificationEmail($user_email, $user_name);
-            
-            if ($emailSent) {
-                $_SESSION['admin_message'] = "User approved successfully and notification email sent!";
-                error_log("Approval email sent to: $user_email");
-            } else {
-                $_SESSION['admin_message'] = "User approved but failed to send notification email.";
-                error_log("Failed to send approval email to: $user_email");
+            // Only send email for a regular approval, not a force activation
+            if ($action === 'approve') {
+                $emailSent = sendApprovalNotificationEmail($user_email, $user_name);
+                if ($emailSent) {
+                    $success_message = "User approved successfully and notification email sent!";
+                    error_log("Approval email sent to: $user_email");
+                }
             }
         } else {
             $_SESSION['admin_message'] = "User approved successfully.";
         }
         
-    } else {
-        // For rejection (delete user)
-        $sql = "DELETE FROM users WHERE id = ?";
+    } elseif ($action === 'reject') {
+        // Soft delete the user
+        $sql = "UPDATE users SET is_active = 0 WHERE id = ?";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("i", $user_id);
         $stmt->execute();
         
-        $_SESSION['admin_message'] = "User rejected and removed from system.";
+        $_SESSION['admin_message'] = "User has been deactivated.";
+    } elseif ($action === 'reactivate') {
+        // Reactivate the user
+        $sql = "UPDATE users SET is_active = 1 WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $_SESSION['admin_message'] = "User has been reactivated.";
     }
     
+    header("Location: users.php?success=1");
+    exit();
+}
+
+// Handle Add User
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
+    $name = trim($_POST['name']);
+    $email = trim($_POST['email']);
+    $password = $_POST['password'];
+    $user_type = $_POST['user_type'];
+    $department = $_POST['department'];
+
+    // Check if email already exists
+    $checkEmail = $conn->prepare("SELECT id FROM users WHERE email = ?");
+    $checkEmail->bind_param("s", $email);
+    $checkEmail->execute();
+    if ($checkEmail->get_result()->num_rows > 0) {
+        $_SESSION['admin_message'] = "Error: An account with this email already exists.";
+    } else {
+        // Hash the password
+        $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+
+        // Insert new user - automatically verified and approved
+        $stmt = $conn->prepare("INSERT INTO users (name, email, password, user_type, department, verified, approved, is_active) VALUES (?, ?, ?, ?, ?, 1, 1, 1)");
+        $stmt->bind_param("sssss", $name, $email, $hashed_password, $user_type, $department);
+        if ($stmt->execute()) {
+            $_SESSION['admin_message'] = "User added successfully!";
+        } else {
+            $_SESSION['admin_message'] = "Error adding user: " . $conn->error;
+        }
+    }
     header("Location: users.php?success=1");
     exit();
 }
@@ -102,9 +146,11 @@ if ($status_filter && $status_filter !== 'all') {
     if ($status_filter === 'verified') {
         $sql .= " AND verified = 1 AND approved = 0";
     } elseif ($status_filter === 'approved') {
-        $sql .= " AND approved = 1";
+        $sql .= " AND approved = 1 AND is_active = 1";
     } elseif ($status_filter === 'not_verified') {
         $sql .= " AND verified = 0";
+    } elseif ($status_filter === 'deactivated') {
+        $sql .= " AND is_active = 0";
     }
 }
 
@@ -146,12 +192,12 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         }
         
         :root {
-            --background: #ffffff;
+            --background: #fdfaf6;
             --foreground: #0a0a0a;
             --card: #ffffff;
             --card-foreground: #0a0a0a;
-            --muted: #f5f5f5;
-            --muted-foreground: #737373;
+            --muted: #f8f5f1;
+            --muted-foreground: #71717a;
             --border: #e5e5e5;
             --primary: #0a0a0a;
             --primary-foreground: #fafafa;
@@ -162,8 +208,8 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             --success: #22c55e;
             --warning: #f59e0b;
             --danger: #ef4444;
-            --info: #3b82f6;
-            --sidebar: #fafafa;
+            --info: #3b82f6; 
+            --sidebar: #ffffff;
             --sidebar-foreground: #0a0a0a;
             --sidebar-border: #e5e5e5;
         }
@@ -182,13 +228,33 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             --secondary-foreground: #fafafa;
             --accent: #262626;
             --accent-foreground: #fafafa;
-            --sidebar: #171717;
+            --sidebar: #0a0a0a;
             --sidebar-foreground: #fafafa;
             --sidebar-border: #262626;
         }
         
+        /* Modal styles from facility_management.php */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); }
+        .modal-content { background: var(--card); margin: 5% auto; padding: 0; border-radius: 20px; max-width: 600px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 1px solid var(--border); overflow: hidden; }
+        .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .modal-body { padding: 24px; }
+        .form-group { margin-bottom: 20px; }
+        .form-label { display: block; margin-bottom: 8px; font-weight: 600; color: var(--foreground); }
+        .form-input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--background); color: var(--foreground); font-size: 14px; transition: border-color 0.2s; }
+        .form-input:focus { outline: none; border-color: var(--primary); }
+        .form-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; }
+        .btn-primary { background: var(--primary); color: var(--primary-foreground); }
+        .btn-secondary { background: var(--secondary); color: var(--secondary-foreground); border: 1px solid var(--border); }
+
+        @font-face {
+            font-family: 'Geist Sans';
+            src: url('../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2') format('woff2');
+            font-weight: 100 900;
+            font-style: normal;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-family: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background: var(--background);
             color: var(--foreground);
             display: flex;
@@ -240,7 +306,7 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             padding: 10px 12px;
             color: var(--muted-foreground);
             text-decoration: none;
-            border-radius: 8px;
+            border-radius: 12px;
             transition: all 0.2s;
             font-size: 14px;
             font-weight: 500;
@@ -360,10 +426,11 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         .card {
             background: var(--card);
             border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: 20px;
             padding: 24px;
             margin-bottom: 24px;
             transition: background-color 0.3s, border-color 0.3s;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
         }
         
         .card-header {
@@ -380,6 +447,21 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             font-weight: 600;
             color: var(--foreground);
         }
+
+        .btn-add {
+            padding: 8px 16px;
+            background: var(--primary);
+            color: var(--primary-foreground);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
         
         /* Filters */
         .filters {
@@ -392,7 +474,7 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         .filter-btn {
             padding: 8px 16px;
             border: 1px solid var(--border);
-            background: var(--card);
+            background: var(--background);
             border-radius: 8px;
             cursor: pointer;
             font-weight: 500;
@@ -414,7 +496,7 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             border: 1px solid var(--border);
             border-radius: 8px;
             font-size: 14px;
-            background: var(--card);
+            background: var(--background);
             color: var(--foreground);
             min-width: 250px;
         }
@@ -427,7 +509,8 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         .advanced-filters {
             background: var(--card);
             border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
             padding: 20px;
             margin-bottom: 24px;
         }
@@ -465,23 +548,6 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             color: var(--foreground);
         }
 
-        .btn-apply {
-            padding: 10px 24px;
-            background: var(--primary);
-            color: var(--primary-foreground);
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 500;
-            font-size: 14px;
-            transition: all 0.2s;
-        }
-
-        .btn-apply:hover {
-            opacity: 0.9;
-            transform: translateY(-1px);
-        }
-        
         /* Table */
         .table {
             width: 100%;
@@ -513,8 +579,8 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         .badge {
             display: inline-flex;
             align-items: center;
-            padding: 4px 10px;
-            border-radius: 6px;
+            padding: 6px 12px;
+            border-radius: 999px;
             font-size: 12px;
             font-weight: 600;
             text-transform: uppercase;
@@ -559,7 +625,7 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         /* Buttons */
         .btn {
             padding: 8px 16px;
-            border: none;
+            border: 1px solid transparent;
             border-radius: 6px;
             cursor: pointer;
             font-weight: 500;
@@ -804,27 +870,24 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
                     User action completed successfully!
                 </div>
             <?php endif; ?>
-
-             <!-- Quick Filters -->
-            <div class="card">
-                <form method="GET" class="filters">
-                    <a href="?filter=all" class="filter-btn <?php echo $filter === 'all' ? 'active' : ''; ?>">All Users</a>
-                    <a href="?filter=pending" class="filter-btn <?php echo $filter === 'pending' ? 'active' : ''; ?>">Pending</a>
-                    <a href="?filter=approved" class="filter-btn <?php echo $filter === 'approved' ? 'active' : ''; ?>">Approved</a>
-                    <a href="?filter=admin" class="filter-btn <?php echo $filter === 'admin' ? 'active' : ''; ?>">Admins</a>
-                    <div class="search-box">
-                        <input type="text" name="search" placeholder="Search users..." value="<?php echo htmlspecialchars($search); ?>">
-                    </div>
-                </form>
-            </div>
-
-            <!-- Advanced Filters -->
+            
+            <!-- Unified Filter Section -->
             <div class="advanced-filters">
                 <form method="GET" id="advancedFilters">
                     <div class="filter-row">
                         <div class="filter-group">
                             <label for="search">Search Users</label>
                             <input type="text" id="search" name="search" placeholder="Search by name, email, or department..." value="<?php echo htmlspecialchars($search); ?>">
+                        </div>
+                        <div class="filter-group">
+                            <label for="status">Status</label>
+                            <select id="status" name="status">
+                                <option value="all">All Status</option>
+                                <option value="not_verified" <?php echo $status_filter === 'not_verified' ? 'selected' : ''; ?>>Not Verified</option>
+                                <option value="verified" <?php echo $status_filter === 'verified' ? 'selected' : ''; ?>>Verified (Pending)</option>
+                                <option value="approved" <?php echo $status_filter === 'approved' ? 'selected' : ''; ?>>Approved</option>
+                                <option value="deactivated" <?php echo $status_filter === 'deactivated' ? 'selected' : ''; ?>>Deactivated</option>
+                            </select>
                         </div>
                         <div class="filter-group">
                             <label for="user_type">User Type</label>
@@ -836,18 +899,6 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
                                 <option value="Admin" <?php echo $user_type_filter === 'Admin' ? 'selected' : ''; ?>>Admin</option>
                             </select>
                         </div>
-                        <div class="filter-group">
-                            <label for="status">Status</label>
-                            <select id="status" name="status">
-                                <option value="all">All Status</option>
-                                <option value="not_verified" <?php echo $status_filter === 'not_verified' ? 'selected' : ''; ?>>Not Verified</option>
-                                <option value="verified" <?php echo $status_filter === 'verified' ? 'selected' : ''; ?>>Verified (Pending)</option>
-                                <option value="approved" <?php echo $status_filter === 'approved' ? 'selected' : ''; ?>>Approved</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <button type="submit" class="btn-apply">Apply Filters</button>
-                        </div>
                     </div>
                 </form>
             </div>
@@ -856,6 +907,12 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             <div class="card">
                 <div class="card-header">
                     <h2 class="card-title">Users</h2>
+                    <button class="btn-add" onclick="openAddModal()">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        Add New User
+                    </button>
                 </div>
                 <table class="table">
                     <thead>
@@ -885,6 +942,8 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
                                     // Determine user status based on verified and approved fields
                                     if ($user['verified'] == 0) {
                                         echo '<span class="badge not-verified">Not Verified</span>';
+                                    } elseif ($user['is_active'] == 0) {
+                                        echo '<span class="badge not-verified">Deactivated</span>';
                                     } elseif ($user['approved'] == 0) {
                                         echo '<span class="badge pending">Pending Approval</span>';
                                     } else {
@@ -896,26 +955,32 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
                                 <td>
                                     <div class="action-buttons">
                                         <?php if ($user['verified'] == 1 && $user['approved'] == 0): ?>
-                                            <!-- Pending approval - show approve/reject buttons -->
+                                            <!-- Verified, Pending Approval -> Show Approve button -->
                                             <form method="POST" style="display: inline;">
                                                 <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
                                                 <button type="submit" name="action" value="approve" class="btn btn-approve">Approve</button>
-                                                <button type="submit" name="action" value="reject" class="btn btn-reject" onclick="return confirm('Are you sure you want to reject this user?')">Reject</button>
                                             </form>
                                         <?php elseif ($user['user_type'] !== 'Admin'): ?>
                                             <!-- For non-admin users who are already approved or not verified -->
                                             <?php if ($user['verified'] == 0): ?>
-                                                <!-- Not verified - show activate option -->
+                                                <!-- Not verified -> Show Force Activate option -->
                                                 <form method="POST" style="display: inline;">
                                                     <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
-                                                    <button type="submit" name="action" value="approve" class="btn btn-activate">Activate</button>
+                                                    <button type="submit" name="action" value="force_approve" class="btn btn-activate" onclick="return confirm('This will bypass email verification and approve the user immediately. Are you sure?')">Force Approve</button>
+                                                </form>
+                                            <?php elseif ($user['is_active'] == 0): ?>
+                                                <!-- Deactivated user -> Show Reactivate option -->
+                                                <form method="POST" style="display: inline;">
+                                                    <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
+                                                    <button type="submit" name="action" value="reactivate" class="btn btn-activate">Reactivate</button>
                                                 </form>
                                             <?php endif; ?>
-                                            <!-- Always show delete option for non-admin users -->
+
+                                            <!-- Always show Deactivate option for active non-admin users -->
                                             <form method="POST" style="display: inline;">
                                                 <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
-                                                <button type="submit" name="action" value="reject" class="btn btn-delete" onclick="return confirm('Are you sure you want to delete this user?')">Delete</button>
-                                            </form>
+                                                <button type="submit" name="action" value="reject" class="btn btn-delete" onclick="return confirm('Are you sure you want to deactivate this user?')">Deactivate</button>
+                                            </form>                                            
                                         <?php else: ?>
                                             <!-- Admin users - no actions -->
                                             <span style="color: var(--muted-foreground);">-</span>
@@ -930,7 +995,63 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
         </main>
     </div>
 
+    <!-- Add User Modal -->
+    <div id="addModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New User</h3>
+                <button onclick="closeAddModal()" style="background: none; border: none; cursor: pointer;">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <form method="POST" class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" name="name" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" name="email" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" name="password" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">User Type</label>
+                    <select name="user_type" class="form-input" required>
+                        <option value="Student">Student</option>
+                        <option value="Faculty">Faculty</option>
+                        <option value="Staff">Staff</option>
+                        <option value="Admin">Admin</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Department</label>
+                    <select name="department" class="form-input" required>
+                        <option value="Medical Colleges of Northern Philippines">Medical Colleges of Northern Philippines</option>
+                        <option value="International School of Asia and the Pacific">International School of Asia and the Pacific</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeAddModal()">Cancel</button>
+                    <button type="submit" name="add_user" class="btn btn-primary">Add User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
+        function openAddModal() {
+            document.getElementById('addModal').style.display = 'block';
+        }
+        
+        function closeAddModal() {
+            document.getElementById('addModal').style.display = 'none';
+        }
+
         function toggleTheme() {
             const html = document.documentElement;
             const currentTheme = html.classList.contains('dark') ? 'dark' : 'light';
@@ -975,12 +1096,16 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
             const sidebar = document.querySelector('.sidebar');
             const mobileBtn = document.querySelector('.mobile-menu-btn');
             const overlay = document.getElementById('sidebarOverlay');
+            const addModal = document.getElementById('addModal');
             
             if (window.innerWidth <= 768 && 
                 !sidebar.contains(event.target) && 
                 !mobileBtn.contains(event.target) &&
                 sidebar.classList.contains('mobile-open')) {
                 toggleSidebar();
+            }
+            if (event.target === addModal) {
+                closeAddModal();
             }
         });
 

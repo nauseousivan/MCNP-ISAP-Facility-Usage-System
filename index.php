@@ -44,6 +44,7 @@ if ($conn->query($sql) === TRUE) {
         if ($emailSent) {
             $_SESSION['verification_code'] = $verification_code;
             $_SESSION['verify_email'] = $email;
+            $_SESSION['registration_department'] = $department; // Save department for verify page
             $_SESSION['email_sent'] = true;
             header("Location: verify.php");
             exit();
@@ -57,10 +58,7 @@ if ($conn->query($sql) === TRUE) {
 } else {
     $error = "Error: " . $conn->error;
 }
-} else {
-    $error = "Error: " . $conn->error;
-}
-    
+    }
     if (isset($_POST['login'])) {
         $email = $_POST['email'];
         $password = $_POST['password'];
@@ -72,15 +70,19 @@ if ($conn->query($sql) === TRUE) {
             $user = $result->fetch_assoc();
             if (password_verify($password, $user['password'])) {
                 if ($user['verified'] == 1) {
-                    if ($user['approved'] == 1) {
-                        $_SESSION['user_id'] = $user['id'];
-                        $_SESSION['user_name'] = $user['name'];
-                        $_SESSION['user_type'] = $user['user_type'];
-                        $_SESSION['user_department'] = $user['department'];
-                        header("Location: dashboard.php");
-                        exit();
+                    if ($user['is_active'] == 1) { // Check if account is active
+                        if ($user['approved'] == 1) {
+                            $_SESSION['user_id'] = $user['id'];
+                            $_SESSION['user_name'] = $user['name'];
+                            $_SESSION['user_type'] = $user['user_type'];
+                            $_SESSION['user_department'] = $user['department'];
+                            header("Location: dashboard.php");
+                            exit();
+                        } else {
+                            $error = "Your account is pending admin approval.";
+                        }
                     } else {
-                        $error = "Your account is pending admin approval.";
+                        $error = "Your account has been deactivated. Please contact an administrator.";
                     }
                 } else {
                     $error = "Please verify your email first.";
@@ -107,9 +109,16 @@ if ($conn->query($sql) === TRUE) {
             box-sizing: border-box;
         }
         
+        @font-face {
+            font-family: 'Geist Sans';
+            src: url('node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2') format('woff2');
+            font-weight: 100 900;
+            font-style: normal;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+            font-family: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #fdfaf6;
             min-height: 100vh;
             display: flex;
             align-items: center;

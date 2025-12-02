@@ -4,6 +4,7 @@ require_once 'db_connection.php';
 
 $message = '';
 $messageType = '';
+$department = isset($_SESSION['registration_department']) ? $_SESSION['registration_department'] : '';
 $email = isset($_GET['email']) ? $_GET['email'] : (isset($_SESSION['verify_email']) ? $_SESSION['verify_email'] : '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -26,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($user['verified'] == 1) {
                 $message = 'This account is already verified. Please login.';
                 $messageType = 'error';
+                unset($_SESSION['verify_email']);
             } else {
                 // Update to mark as verified
                 $updateStmt = $conn->prepare("UPDATE users SET verified = 1, verification_code = NULL WHERE email = ? AND verification_code = ?");
@@ -33,6 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 if ($updateStmt->execute() && $updateStmt->affected_rows > 0) {
                     $_SESSION['verification_success'] = true;
+                    unset($_SESSION['verify_email']);
                     header("Location: verify.php?success=1");
                     exit();
                 } else {
@@ -62,9 +65,16 @@ $showSuccess = isset($_GET['success']) && $_GET['success'] == 1;
             box-sizing: border-box;
         }
 
+        @font-face {
+            font-family: 'Geist Sans';
+            src: url('node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2') format('woff2');
+            font-weight: 100 900;
+            font-style: normal;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            font-family: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #fdfaf6;
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -82,12 +92,24 @@ $showSuccess = isset($_GET['success']) && $_GET['success'] == 1;
             margin-bottom: 32px;
         }
 
+        .logo-group {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+        }
+
         .logo {
-            width: 100px;
-            height: 100px;
+            max-width: 90px;
+            max-height: 90px;
+            object-fit: contain;
+        }
+
+        .logo.circular {
+            width: 90px;
+            height: 90px;
             border-radius: 50%;
             object-fit: cover;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         }
 
         .card {
@@ -158,7 +180,7 @@ $showSuccess = isset($_GET['success']) && $_GET['success'] == 1;
             margin-bottom: 8px;
         }
 
-        input[type="text"] {
+        input[type="text"]:not(#chatInput) {
             width: 100%;
             padding: 14px 16px;
             font-size: 16px;
@@ -210,6 +232,34 @@ $showSuccess = isset($_GET['success']) && $_GET['success'] == 1;
             transform: translateY(0);
         }
 
+        .resend-container {
+            text-align: center;
+            margin-top: 24px;
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        #resendBtn {
+            background: none;
+            border: none;
+            color: #3b82f6;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .back-to-login {
+            text-align: center;
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid #e5e7eb;
+            font-size: 14px;
+        }
+
+        .back-to-login a {
+            color: #1a1a1a;
+            font-weight: 600;
+            text-decoration: none;
+        }
         .alert {
             padding: 12px 16px;
             border-radius: 8px;
@@ -274,8 +324,17 @@ $showSuccess = isset($_GET['success']) && $_GET['success'] == 1;
 <body>
     <div class="container">
         <?php if (!$showSuccess): ?>
-            <div class="logo-container">
-                <img src="combined-logo.png" alt="MCNP-ISAP Logo" class="logo">
+            <div class="logo-container"> 
+                <?php if (strpos($department, 'Medical') !== false): ?>
+                    <img src="medical-logo2.png" alt="MCNP Logo" class="logo circular">
+                <?php elseif (strpos($department, 'International') !== false): ?>
+                    <img src="isap-logo2.png" alt="ISAP Logo" class="logo">
+                <?php else: ?>
+                    <div class="logo-group">
+                        <img src="medical-logo2.png" alt="MCNP Logo" class="logo circular">
+                        <img src="isap-logo2.png" alt="ISAP Logo" class="logo">
+                    </div>
+                <?php endif; ?>
             </div>
 
             <div class="card">
@@ -306,6 +365,15 @@ $showSuccess = isset($_GET['success']) && $_GET['success'] == 1;
 
                     <button type="submit" class="btn btn-primary">Verify Email</button>
                 </form>
+
+                <div class="resend-container">
+                    Didn't receive a code? 
+                    <button id="resendBtn" onclick="resendCode()">Resend</button>
+                </div>
+
+                <div class="back-to-login">
+                    <a href="index.php">← Back to Login</a>
+                </div>
             </div>
         <?php else: ?>
             <div class="card">
@@ -339,34 +407,72 @@ $showSuccess = isset($_GET['success']) && $_GET['success'] == 1;
     </div>
 
     <script>
-        // Countdown timer
-        let timeLeft = 600; // 10 minutes in seconds
-        const timerElement = document.getElementById('timer');
+        document.addEventListener('DOMContentLoaded', function() {
+            // Countdown timer
+            let timeLeft = 600; // 10 minutes in seconds
+            const timerElement = document.getElementById('timer');
 
-        if (timerElement) {
-            function updateTimer() {
-                const minutes = Math.floor(timeLeft / 60);
-                const seconds = timeLeft % 60;
-                timerElement.textContent = `Code expires in ${minutes}:${seconds.toString().padStart(2, '0')}`;
-                
-                if (timeLeft > 0) {
-                    timeLeft--;
-                    setTimeout(updateTimer, 1000);
-                } else {
-                    timerElement.textContent = 'Code has expired';
-                    timerElement.style.color = '#ef4444';
+            if (timerElement) {
+                function updateTimer() {
+                    const minutes = Math.floor(timeLeft / 60);
+                    const seconds = timeLeft % 60;
+                    timerElement.textContent = `Code expires in ${minutes}:${seconds.toString().padStart(2, '0')}`;
+                    
+                    if (timeLeft > 0) {
+                        timeLeft--;
+                        setTimeout(updateTimer, 1000);
+                    } else {
+                        timerElement.textContent = 'Code has expired';
+                        timerElement.style.color = '#ef4444';
+                    }
                 }
+                
+                updateTimer();
             }
-            
-            updateTimer();
-        }
 
-        // Auto-format verification code input
-        const codeInput = document.getElementById('code');
-        if (codeInput) {
-            codeInput.addEventListener('input', function(e) {
-                this.value = this.value.replace(/[^0-9]/g, '');
-            });
+            // Auto-format verification code input
+            const codeInput = document.getElementById('code');
+            if (codeInput) {
+                codeInput.addEventListener('input', function(e) {
+                    this.value = this.value.replace(/[^0-9]/g, '');
+                });
+            }
+        });
+
+        async function resendCode() {
+            const resendBtn = document.getElementById('resendBtn');
+            const originalText = resendBtn.textContent;
+            resendBtn.disabled = true;
+            resendBtn.textContent = 'Sending...';
+
+            try { // Keep the try-catch block for the network request
+                const response = await fetch('resend_code.php', {
+                    method: 'POST'
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('A new verification code has been sent to your email.');
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                alert('An error occurred. Please try again.');
+            }
+
+            // Start countdown
+            let cooldown = 60;
+            resendBtn.textContent = `Resend (${cooldown}s)`;
+
+            const interval = setInterval(() => {
+                cooldown--;
+                resendBtn.textContent = `Resend (${cooldown}s)`;
+                if (cooldown <= 0) {
+                    clearInterval(interval);
+                    resendBtn.disabled = false;
+                    resendBtn.textContent = originalText;
+                }
+            }, 1000);
         }
     </script>
     <?php include 'chat_bot.php'; ?>
